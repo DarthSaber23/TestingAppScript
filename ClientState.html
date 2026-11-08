@@ -1,0 +1,994 @@
+<script>
+    // SERVER_CONTEXT is initialized in Index.html
+
+    // State Aplikasi
+    let currentRole = null;
+    let currentUser = null;
+    let selectedMoodVal = null;
+    let selectedTriggers = [];
+    let chatTargetEmail = null;
+    let breathingInterval = null;
+    let currentSurveyData = null;
+    let currentQuestionIndex = 0;
+    let wizardAnswers = {};
+    let currentLang = 'id';
+    try {
+      currentLang = localStorage.getItem('wellbeing_lang') || 'id';
+    } catch (e) {
+      currentLang = 'id';
+    }
+
+    const I18N = {
+      id: {
+        'app.title': 'IPEKA Student Well Being Hub',
+        'app.safe_space': 'Safe Space',
+        'app.subtitle': 'Ruang Pendampingan Emosional & Kesejahteraan Siswa',
+        'role.admin': '👑 Admin Sekolah ({class})',
+        'role.counselor': '🎓 Guru BK ({class})',
+        'role.student': '👤 Siswa ({class})',
+
+        'nav.mood': 'Mood',
+        'nav.journal': 'Jurnal',
+        'nav.report': 'Lapor',
+        'nav.education': 'Edukasi',
+        'nav.counseling': 'Konseling',
+        'nav.survey': 'Survei',
+        'nav.add_counselor': '+ Guru BK',
+
+        'mood.daily_reflection': 'Refleksi Harian',
+        'mood.streak_days': '🔥 {days} Hari Berturut-turut',
+        'mood.how_are_you': 'Gimana Perasaanmu Hari Ini? ✨',
+        'mood.subtitle': 'Pilih emoji yang paling mewakili keadaan hatimu saat ini.',
+        'mood.select_core': 'Pilih Emosi Utama (Feelings Wheel):',
+        'mood.select_secondary': 'Pilih Emosi Spesifik:',
+        'mood.triggers': 'Faktor Pemicu (Bisa Pilih Beberapa):',
+        'mood.tell_me_more': 'Tell me more (Opsional):',
+        'mood.draft_saved': '✓ Draft tersimpan',
+        'mood.notes_placeholder': 'Ceritakan apa yang membuatmu merasa seperti ini... Bebas tanpa beban.',
+        'mood.save_btn': 'Simpan Mood Hari Ini',
+        'mood.trend_title': 'Tren Emosimu 7 Hari Terakhir',
+        'mood.trend_sub': 'Pantau pola suasana hatimu untuk refleksi diri yang lebih sehat.',
+        'mood.self_reflection': 'Refleksi Mandiri',
+
+        'survey.banner_badge': 'Kuesioner Siswa',
+        'survey.btn_start': 'Mulai Kuesioner',
+        'survey.btn_edit': 'Edit Kuesioner',
+        'survey.btn_view_results': 'Lihat Hasil Survei',
+        'survey.editor_title': 'Buat Kuesioner Survei Baru',
+        'survey.save': 'Simpan Kuesioner Survei',
+        'survey.wizard_title': 'Kuesioner Survei Siswa',
+        'survey.submit': 'Kirim Kuesioner',
+        'survey.complete_title': 'Kuesioner Berhasil Disimpan 🎉',
+
+        'journal.title': 'Jurnal Refleksi Pribadi',
+        'journal.subtitle': 'Ruang aman untuk mencurahkan isi hati dan pikiranmu. Hanya kamu dan Guru BK yang dapat melihat.',
+        'journal.write_new': 'Tulis Jurnal Baru',
+        'journal.input_title': 'Judul Jurnal',
+        'journal.input_title_placeholder': 'Beri judul untuk tulisanmu hari ini...',
+        'journal.input_content': 'Ceritakan Pikiran atau Perasaanmu',
+        'journal.input_content_placeholder': 'Apa yang sedang berkecamuk di pikiranmu? Tuliskan dengan jujur...',
+        'journal.save_btn': 'Simpan Jurnal',
+        'journal.history': 'Riwayat Jurnal Refleksi',
+        'journal.history_title': 'Riwayat Jurnal Refleksi',
+
+        'report.title': 'Layanan Pengaduan & Perlindungan Siswa',
+        'report.subtitle': 'Laporkan perundungan (bullying), pelecehan, atau ancaman keselamatan dengan aman, rahasia, dan tepercaya.',
+        'report.role_label': 'Peran Pelapor:',
+        'report.detail_label': 'Detail Kejadian:',
+        'report.detail_placeholder': 'Kapan kejadiannya, lokasi, siapa yang terlibat, dan kronologi apa yang terjadi...',
+        'report.form_title': 'Formulir Laporan Kejadian',
+        'report.submit_btn': 'Kirim Laporan Pengaduan',
+
+        'education.title': 'Pojok Regulasi Emosi & Edukasi Psikologis',
+        'education.subtitle': 'Pelajari cara mengenali dan meregulasi perasaanmu melalui teknik praktis serta panduan kesehatan mental remaja.',
+        'education.breathing_title': 'Latihan Napas 4-7-8',
+        'education.breathing_subtitle': 'Tarik napas selama 4 detik, tahan 7 detik, lalu hembuskan perlahan selama 8 detik.',
+
+        'counseling.title': 'Konseling & Bimbingan Privat',
+        'counseling.subtitle': 'Jadwalkan sesi bimbingan tatap muka dengan Guru BK atau konsultasi secara privat lewat chat terenkripsi.',
+        'counseling.choose_counselor': 'Pilih Guru BK:',
+        'counseling.book_btn': 'Ajukan Janji Temu',
+
+        'counselor.dashboard_badge': 'Dashboard Konselor',
+        'counselor.hub_title': 'Pusat Pendampingan Siswa (Guru BK SMA)',
+        'counselor.btn_create_survey': '+ Buat Survei',
+        'counselor.btn_create_article': '+ Tulis Artikel',
+        'counselor.btn_edit_quote': '+ Kata Motivasi',
+        'counselor.btn_add_counselor': '+ Tambah Guru BK',
+        'counselor.metric_checkins': 'Check-in Siswa',
+        'counselor.metric_reports': 'Laporan Pengaduan Bullying',
+        'counselor.metric_appointments': 'Janji Temu Menunggu',
+        'counselor.metric_triage': 'Stress Level Butuh Perhatian',
+        'counselor.reports_heading': 'Laporan Pengaduan Bullying',
+        'counselor.reports_sub': 'Manajemen Kasus',
+        'counselor.subtab_overview': 'Triage & Ringkasan',
+        'counselor.subtab_directory': 'Direktori & Profil Holistik Siswa',
+        'counselor.triage_heading': 'Peringatan Dini / Rule-Based Triage',
+        'counselor.triage_sub': 'Auto-Flagging Siswa Berisiko',
+        'counselor.chat_title': 'Percakapan Pesan Siswa',
+        'counselor.chat_sub': 'Pesan Masuk & Konseling Tertutup',
+        'counselor.appointments_heading': 'Pengajuan Janji Temu Tatap Muka',
+        'counselor.appointments_sub': 'Sinkronisasi Otomatis Google Calendar',
+
+        'btn.refresh': 'Segarkan Data',
+        'btn.refresh_short': 'Segarkan',
+        'btn.cancel': 'Batal',
+        'btn.close': 'Tutup',
+        'btn.save': 'Simpan',
+        'btn.prev': 'Sebelumnya',
+        'btn.next': 'Selanjutnya',
+        'btn.done_close': 'Selesai & Tutup',
+
+        'auth.title': 'Login Google Diperlukan',
+        'auth.sub': 'Standar Integritas & Keamanan ALCOA',
+        'auth.btn': 'Masuk dengan Akun Google',
+
+        'onboarding.title': 'Lengkapi Profil Siswa',
+        'onboarding.btn': 'Simpan & Masuk ke Portal',
+
+        'quote.title': 'Perbarui Kata Motivasi Harian',
+        'quote.save': 'Simpan Kutipan',
+
+        'article.close': 'Tutup Artikel',
+        'article.title': 'Tulis Artikel Edukasi Baru',
+        'article.publish': 'Publikasikan Artikel',
+
+        'admin.counselor_title': 'Tambah Guru BK Baru',
+        'admin.counselor_submit': 'Daftarkan Guru BK ke Spreadsheet'
+      },
+      en: {
+        'app.title': 'IPEKA Student Well Being Hub',
+        'app.safe_space': 'Safe Space',
+        'app.subtitle': 'Student Emotional Support & Well-being Safe Space',
+        'role.admin': '👑 School Admin ({class})',
+        'role.counselor': '🎓 Counselor ({class})',
+        'role.student': '👤 Student ({class})',
+
+        'nav.mood': 'Mood',
+        'nav.journal': 'Journal',
+        'nav.report': 'Report',
+        'nav.education': 'Education',
+        'nav.counseling': 'Counseling',
+        'nav.survey': 'Survey',
+        'nav.add_counselor': '+ Counselor',
+
+        'mood.daily_reflection': 'Daily Reflection',
+        'mood.streak_days': '🔥 {days} Day Streak',
+        'mood.how_are_you': 'How Are You Feeling Today? ✨',
+        'mood.subtitle': 'Choose the emotion that best reflects your feelings right now.',
+        'mood.select_core': 'Select Core Emotion (Feelings Wheel):',
+        'mood.select_secondary': 'Select Specific Emotion:',
+        'mood.triggers': 'Trigger Factors (Select Multiple):',
+        'mood.tell_me_more': 'Tell me more (Optional):',
+        'mood.draft_saved': '✓ Draft saved',
+        'mood.notes_placeholder': 'Tell us what makes you feel this way... Feel free and open.',
+        'mood.save_btn': "Save Today's Mood",
+        'mood.trend_title': 'Your 7-Day Mood Trend',
+        'mood.trend_sub': 'Track your emotional patterns for healthier self-reflection.',
+        'mood.self_reflection': 'Self Reflection',
+
+        'survey.banner_badge': 'Student Survey',
+        'survey.btn_start': 'Start Survey',
+        'survey.btn_edit': 'Edit Survey',
+        'survey.btn_view_results': 'View Survey Results',
+        'survey.editor_title': 'Create New Survey Questionnaire',
+        'survey.save': 'Save Survey Questionnaire',
+        'survey.wizard_title': 'Student Survey Questionnaire',
+        'survey.submit': 'Submit Survey',
+        'survey.complete_title': 'Survey Successfully Saved 🎉',
+
+        'journal.title': 'Personal Reflection Journal',
+        'journal.subtitle': 'A safe space to pour your thoughts and feelings. Only you and your counselor can see.',
+        'journal.write_new': 'Write a New Journal',
+        'journal.input_title': 'Journal Title',
+        'journal.input_title_placeholder': 'Give a title for your writing today...',
+        'journal.input_content': 'Share Your Thoughts or Feelings',
+        'journal.input_content_placeholder': 'What is on your mind? Write honestly...',
+        'journal.save_btn': 'Save Journal',
+        'journal.history': 'Reflection Journal History',
+        'journal.history_title': 'Reflection Journal History',
+
+        'report.title': 'Student Protection & Complaint Service',
+        'report.subtitle': 'Report bullying, harassment, or safety concerns safely, confidentially, and reliably.',
+        'report.role_label': 'Reporter Role:',
+        'report.detail_label': 'Incident Details:',
+        'report.detail_placeholder': 'When it occurred, location, who was involved, and chronology of events...',
+        'report.form_title': 'Incident Report Form',
+        'report.submit_btn': 'Submit Complaint Report',
+
+        'education.title': 'Emotion Regulation & Psychoeducation Corner',
+        'education.subtitle': 'Learn to recognize and regulate your feelings through practical techniques and adolescent mental health guides.',
+        'education.breathing_title': '4-7-8 Breathing Exercise',
+        'education.breathing_subtitle': 'Inhale for 4 seconds, hold for 7 seconds, then exhale slowly for 8 seconds.',
+
+        'counseling.title': 'Private Counseling & Guidance',
+        'counseling.subtitle': 'Schedule an in-person guidance session with your counselor or consult privately via encrypted chat.',
+        'counseling.choose_counselor': 'Choose Counselor:',
+        'counseling.book_btn': 'Request Appointment',
+
+        'counselor.dashboard_badge': 'Counselor Dashboard',
+        'counselor.hub_title': 'Student Support Center (High School Counselor)',
+        'counselor.btn_create_survey': '+ Create Survey',
+        'counselor.btn_create_article': '+ Write Article',
+        'counselor.btn_edit_quote': '+ Daily Quote',
+        'counselor.btn_add_counselor': '+ Add Counselor',
+        'counselor.metric_checkins': 'Student Check-ins',
+        'counselor.metric_reports': 'Bullying Complaint Reports',
+        'counselor.metric_appointments': 'Pending Appointments',
+        'counselor.metric_triage': 'Stress Level Needs Attention',
+        'counselor.reports_heading': 'Bullying Complaint Reports',
+        'counselor.reports_sub': 'Case Management',
+        'counselor.subtab_overview': 'Triage & Overview',
+        'counselor.subtab_directory': 'Student Holistic Directory & Profiles',
+        'counselor.triage_heading': 'Early Warning / Rule-Based Triage',
+        'counselor.triage_sub': 'At-Risk Student Auto-Flagging',
+        'counselor.chat_title': 'Student Message Conversations',
+        'counselor.chat_sub': 'Incoming Messages & Confidential Counseling',
+        'counselor.appointments_heading': 'In-Person Appointment Requests',
+        'counselor.appointments_sub': 'Automatic Google Calendar Sync',
+
+        'btn.refresh': 'Refresh Data',
+        'btn.refresh_short': 'Refresh',
+        'btn.cancel': 'Cancel',
+        'btn.close': 'Close',
+        'btn.save': 'Save',
+        'btn.prev': 'Previous',
+        'btn.next': 'Next',
+        'btn.done_close': 'Done & Close',
+
+        'auth.title': 'Google Login Required',
+        'auth.sub': 'ALCOA Security & Integrity Standard',
+        'auth.btn': 'Sign in with Google Account',
+
+        'onboarding.title': 'Complete Student Profile',
+        'onboarding.btn': 'Save & Enter Portal',
+
+        'quote.title': 'Update Daily Motivation Quote',
+        'quote.save': 'Save Quote',
+
+        'article.close': 'Close Article',
+        'article.title': 'Write New Educational Article',
+        'article.publish': 'Publish Article',
+
+        'admin.counselor_title': 'Add New Counselor',
+        'admin.counselor_submit': 'Register Counselor to Spreadsheet'
+      }
+    };
+
+    function t(key, params) {
+      const lang = (typeof currentLang !== 'undefined' && currentLang === 'en') ? 'en' : 'id';
+      let val = (I18N[lang] && I18N[lang][key]) || (I18N['id'] && I18N['id'][key]) || key;
+      if (params && typeof params === 'object') {
+        Object.keys(params).forEach(p => {
+          val = val.replace(new RegExp(`{${p}}`, 'g'), params[p]);
+        });
+      }
+      return val;
+    }
+
+    function setLanguage(lang) {
+      currentLang = (lang === 'en') ? 'en' : 'id';
+      try {
+        localStorage.setItem('wellbeing_lang', currentLang);
+      } catch (e) {}
+
+      const btnId = document.getElementById('btn-lang-id');
+      const btnEn = document.getElementById('btn-lang-en');
+      if (btnId && btnEn) {
+        if (currentLang === 'id') {
+          btnId.className = 'px-2 py-1 rounded-lg transition bg-white text-teal-700 shadow-xs cursor-pointer';
+          btnEn.className = 'px-2 py-1 rounded-lg transition text-slate-500 hover:text-slate-800 cursor-pointer';
+        } else {
+          btnEn.className = 'px-2 py-1 rounded-lg transition bg-white text-teal-700 shadow-xs cursor-pointer';
+          btnId.className = 'px-2 py-1 rounded-lg transition text-slate-500 hover:text-slate-800 cursor-pointer';
+        }
+      }
+
+      if (document.documentElement) {
+        document.documentElement.lang = currentLang;
+      }
+
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        const val = t(key);
+        if (val) el.textContent = val;
+      });
+
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        const val = t(key);
+        if (val) el.setAttribute('placeholder', val);
+      });
+
+      document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        const key = el.getAttribute('data-i18n-title');
+        const val = t(key);
+        if (val) el.setAttribute('title', val);
+      });
+
+      if (typeof updateUserUI === 'function') {
+        updateUserUI();
+      }
+
+      if (typeof renderFeelingsWheelSelector === 'function') {
+        renderFeelingsWheelSelector();
+      }
+
+      if (typeof updateSurveyBannerInfo === 'function') {
+        updateSurveyBannerInfo();
+      }
+    }
+
+    // Inisialisasi Ikon Lucide
+    function initIcons() {
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    }
+
+    // Universal RPC Bridge: Mendukung Google Apps Script & Mock Server (Playwright E2E)
+    function callServer(method, args) {
+      return new Promise((resolve, reject) => {
+        const callerEmail = currentUser ? currentUser.email : (SERVER_CONTEXT && SERVER_CONTEXT.activeEmail ? SERVER_CONTEXT.activeEmail : '');
+        if (window.google && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)[method](...(args || []), callerEmail);
+        } else {
+          // Fallback ke server mock HTTP local
+          fetch('/api/rpc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              method: method,
+              args: args || [],
+              sessionUser: currentUser || { email: callerEmail, role: 'STUDENT' }
+            })
+          })
+          .then(async res => {
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'Server error');
+            resolve(json);
+          })
+          .catch(reject);
+        }
+      });
+    }
+
+    // Toast Helper
+    function showToast(msg, icon = '✨') {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').innerText = msg;
+      document.getElementById('toast-icon').innerText = icon;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+
+    // =========================================================================
+    // IDENTITAS & AUTENTIKASI AKUN GOOGLE RESMI (ALCOA COMPLIANT)
+    // =========================================================================
+    function getCanonicalWebAppUrl() {
+      if (SERVER_CONTEXT && SERVER_CONTEXT.webAppUrl && !SERVER_CONTEXT.webAppUrl.includes('googleusercontent.com')) {
+        return SERVER_CONTEXT.webAppUrl;
+      }
+      return 'https://script.google.com/macros/s/AKfycbxomEGvXWt2rZPxuJviuPNgvlBsqQ9yAx3RMzQXI66Q3GkKhsvGOs1WCnl5kIps9P3rUw/exec';
+    }
+
+    function switchGoogleAccount() {
+      const canonicalUrl = getCanonicalWebAppUrl();
+      const currentEmail = (currentUser && currentUser.email) ? currentUser.email : 'Akun Google Aktif';
+      const msg = `Akun Google saat ini: ${currentEmail}\n\nPerhatian: Google Apps Script Web App sering mengalami Error 400 Bad Request jika memilih akun dari pemilih multi-akun di browser yang sama.\n\nCara Resmi & Paling Aman:\n1. Buka tautan Web App di Profil Chrome terpisah atau Jendela Incognito dengan akun yang Anda tuju.\n2. Atau klik OK untuk logout dari seluruh akun Google Anda saat ini agar dapat login kembali.\n\nKlik OK untuk ke halaman Logout Google, atau Batal untuk menyalin tautan Web App.`;
+      
+      if (confirm(msg)) {
+        localStorage.removeItem('wellbeing_user_session');
+        if (window.top) {
+          window.top.location.href = 'https://accounts.google.com/Logout';
+        } else {
+          window.location.href = 'https://accounts.google.com/Logout';
+        }
+      } else {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(canonicalUrl);
+          showToast('Tautan Web App disalin! Buka di Profil Chrome / Incognito 📋', 'ℹ️');
+        }
+      }
+    }
+
+    function handleGoogleLoginClick(event) {
+      if (event) event.preventDefault();
+      const canonicalUrl = getCanonicalWebAppUrl();
+      if (window.top) {
+        window.top.location.href = canonicalUrl;
+      } else {
+        window.location.href = canonicalUrl;
+      }
+    }
+
+    function openAdminCounselorModal() {
+      if (!currentUser || currentUser.role !== 'ADMIN') {
+        showToast('Hanya Admin yang berwenang menambahkan Guru BK!', '⚠️');
+        return;
+      }
+      document.getElementById('admin-counselor-modal').classList.remove('hidden');
+      setLanguage(currentLang);
+      initIcons();
+    }
+
+    function closeAdminCounselorModal() {
+      document.getElementById('admin-counselor-modal').classList.add('hidden');
+    }
+
+    async function handleAdminAddCounselor() {
+      const email = document.getElementById('admin-new-counselor-email').value.trim();
+      const name = document.getElementById('admin-new-counselor-name').value.trim();
+      const title = document.getElementById('admin-new-counselor-title').value.trim() || 'Guru BK';
+
+      if (!email || !name) {
+        showToast('Email dan Nama Guru BK wajib diisi!', '⚠️');
+        return;
+      }
+
+      showToast('Mendaftarkan Guru BK ke Google Sheets...', '⏳');
+      try {
+        const res = await callServer('addCounselorByAdmin', [{ email, name, title }]);
+        showToast(res.message || `Guru BK ${name} berhasil didaftarkan!`, '✅');
+        closeAdminCounselorModal();
+        document.getElementById('admin-new-counselor-email').value = '';
+        document.getElementById('admin-new-counselor-name').value = '';
+        document.getElementById('admin-new-counselor-title').value = '';
+        if (currentRole === 'COUNSELOR') loadCounselorDashboard();
+      } catch (err) {
+        showToast(err.message, '❌');
+      }
+    }
+
+    async function handleStudentOnboarding() {
+      const email = document.getElementById('onboarding-student-email').value.trim();
+      const name = document.getElementById('onboarding-student-name').value.trim();
+      const studentClass = document.getElementById('onboarding-student-class').value.trim();
+
+      if (!studentClass) {
+        showToast('Kelas wajib diisi untuk siswa baru!', '⚠️');
+        return;
+      }
+
+      showToast('Menyimpan data kelas siswa...', '⏳');
+      try {
+        const res = await callServer('registerStudent', [{ email, name, class: studentClass }]);
+        currentUser = (res && res.user) ? res.user : { email, name, role: 'STUDENT', class: studentClass, status: 'ACTIVE' };
+        localStorage.setItem('wellbeing_user_session', JSON.stringify(currentUser));
+        document.getElementById('student-onboarding-modal').classList.add('hidden');
+        routeUserByRole();
+        showToast(`Selamat datang ${currentUser.name}! Anda terdaftar di kelas ${currentUser.class}`, '🎉');
+      } catch (err) {
+        showToast(err.message, '❌');
+      }
+    }
+
+    // Role-based routing: mengarahkan tampilan otomatis sesuai peran akun di spreadsheet
+    function routeUserByRole() {
+      if (!currentUser) {
+        document.getElementById('auth-required-modal').classList.remove('hidden');
+        setLanguage(currentLang);
+        initIcons();
+        return;
+      }
+
+      const viewStudent = document.getElementById('view-student');
+      const viewCounselor = document.getElementById('view-counselor');
+      const bottomNav = document.getElementById('student-bottom-nav');
+
+      if (currentUser.role === 'COUNSELOR' || currentUser.role === 'ADMIN') {
+        currentRole = 'COUNSELOR';
+        viewStudent.classList.add('hidden');
+        bottomNav.classList.add('hidden');
+        viewCounselor.classList.remove('hidden');
+        loadCounselorDashboard();
+      } else {
+        currentRole = 'STUDENT';
+        viewCounselor.classList.add('hidden');
+        viewStudent.classList.remove('hidden');
+        bottomNav.classList.remove('hidden');
+        loadJournals();
+        loadStudentAppointments();
+        loadCounselorList();
+        loadActiveQuote();
+        loadEducationalArticles();
+        loadStudentMoodTrend();
+        loadActiveSurvey();
+      }
+
+      updateUserUI();
+      setLanguage(currentLang);
+      initIcons();
+    }
+
+    function updateUserUI() {
+      if (!currentUser) return;
+      document.getElementById('app-user-name').innerText = currentUser.name || currentUser.email;
+
+      const roleBadge = document.getElementById('app-user-role-badge');
+      const avatar = document.getElementById('user-avatar-badge');
+      const btnAdminAdd = document.getElementById('btn-admin-add-counselor');
+      const btnAdminDash = document.getElementById('btn-admin-add-counselor-dash');
+
+      if (currentUser.role === 'ADMIN') {
+        if (roleBadge) roleBadge.innerText = t('role.admin', { class: currentUser.class || 'IT & Kesiswaan' });
+        if (avatar) {
+          avatar.innerText = 'ADM';
+          avatar.className = 'w-8 h-8 rounded-xl bg-indigo-100 text-indigo-800 font-extrabold flex items-center justify-center text-xs border border-indigo-300';
+        }
+        if (btnAdminAdd) btnAdminAdd.classList.remove('hidden');
+        if (btnAdminDash) btnAdminDash.classList.remove('hidden');
+      } else if (currentUser.role === 'COUNSELOR') {
+        if (roleBadge) roleBadge.innerText = t('role.counselor', { class: currentUser.class || 'Konselor' });
+        if (avatar) {
+          avatar.innerText = 'BK';
+          avatar.className = 'w-8 h-8 rounded-xl bg-amber-100 text-amber-800 font-extrabold flex items-center justify-center text-xs border border-amber-300';
+        }
+        if (btnAdminAdd) btnAdminAdd.classList.add('hidden');
+        if (btnAdminDash) btnAdminDash.classList.add('hidden');
+      } else {
+        if (roleBadge) roleBadge.innerText = t('role.student', { class: currentUser.class || 'SMP/SMA' });
+        if (avatar) {
+          avatar.innerText = currentUser.name ? currentUser.name.substring(0, 2).toUpperCase() : 'SW';
+          avatar.className = 'w-8 h-8 rounded-xl bg-teal-50 text-teal-700 font-extrabold flex items-center justify-center text-xs border border-teal-200';
+        }
+        if (btnAdminAdd) btnAdminAdd.classList.add('hidden');
+        if (btnAdminDash) btnAdminDash.classList.add('hidden');
+      }
+    }
+
+    // Ambil daftar konselor aktif dari Google Sheets secara dinamis
+    async function loadCounselorList() {
+      try {
+        const ctx = await callServer('getInitialContext', []);
+        const counselors = (ctx && ctx.counselors) || [];
+        
+        const select = document.getElementById('apt-counselor');
+        if (select) {
+          if (counselors.length > 0) {
+            select.innerHTML = counselors.map(c => 
+              `<option value="${c.email}">${c.name} (${c.title || 'Guru BK'})</option>`
+            ).join('');
+          } else {
+            select.innerHTML = `<option value="">Belum ada konselor terdaftar</option>`;
+          }
+        }
+
+        const cardsList = document.getElementById('counselor-cards-list');
+        if (cardsList) {
+          if (counselors.length > 0) {
+            cardsList.innerHTML = counselors.map(c => `
+              <div class="p-3.5 border border-slate-200 rounded-2xl flex items-center justify-between bg-slate-50 hover:border-teal-300 transition">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center font-extrabold text-amber-800 text-xs">${escapeHtml(c.avatar_initials || 'BK')}</div>
+                  <div>
+                    <h4 class="text-xs font-bold text-slate-900">${escapeHtml(c.name)}</h4>
+                    <p class="text-[10px] text-emerald-600 font-semibold">● ${escapeHtml(c.title || 'Guru BK')} (${escapeHtml(c.status || 'Tersedia')})</p>
+                  </div>
+                </div>
+                <button data-counselor-email="${escapeHtml(c.email)}" data-counselor-name="${escapeHtml(c.name)}" class="btn-chat-counselor bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition">Chat</button>
+              </div>
+            `).join('');
+            cardsList.querySelectorAll('.btn-chat-counselor').forEach(btn => {
+              btn.addEventListener('click', () => {
+                openChatModal(btn.dataset.counselorEmail, btn.dataset.counselorName);
+              });
+            });
+          } else {
+            cardsList.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-100">Belum ada Guru BK terdaftar di Google Sheets</div>`;
+          }
+        }
+      } catch (e) {
+        console.warn('Gagal memuat konselor:', e.message);
+      }
+    }
+
+
+    // DRAFT AUTO-RECOVERY & JURNAL CONTROLLERS
+    // =========================================================================
+    const DRAFT_KEYS = {
+      JOURNAL_TITLE: 'draft_journal_title',
+      JOURNAL_CONTENT: 'draft_journal_content',
+      REPORT_DETAIL: 'draft_report_detail',
+      MOOD_NOTES: 'draft_mood_notes'
+    };
+
+    function initDraftRecovery() {
+      const jTitle = document.getElementById('journal-title');
+      const jContent = document.getElementById('journal-content');
+      const rDetail = document.getElementById('report-detail');
+      const mNotes = document.getElementById('mood-notes');
+
+      if (jTitle && localStorage.getItem(DRAFT_KEYS.JOURNAL_TITLE)) {
+        jTitle.value = localStorage.getItem(DRAFT_KEYS.JOURNAL_TITLE);
+      }
+      if (jContent && localStorage.getItem(DRAFT_KEYS.JOURNAL_CONTENT)) {
+        jContent.value = localStorage.getItem(DRAFT_KEYS.JOURNAL_CONTENT);
+        const ind = document.getElementById('draft-journal-indicator');
+        if (ind) ind.classList.remove('hidden');
+      }
+      if (rDetail && localStorage.getItem(DRAFT_KEYS.REPORT_DETAIL)) {
+        rDetail.value = localStorage.getItem(DRAFT_KEYS.REPORT_DETAIL);
+        const ind = document.getElementById('draft-report-indicator');
+        if (ind) ind.classList.remove('hidden');
+      }
+      if (mNotes && localStorage.getItem(DRAFT_KEYS.MOOD_NOTES)) {
+        mNotes.value = localStorage.getItem(DRAFT_KEYS.MOOD_NOTES);
+        const ind = document.getElementById('draft-mood-indicator');
+        if (ind) ind.classList.remove('hidden');
+      }
+
+      if (jTitle) {
+        jTitle.addEventListener('input', () => {
+          localStorage.setItem(DRAFT_KEYS.JOURNAL_TITLE, jTitle.value);
+          const ind = document.getElementById('draft-journal-indicator');
+          if (ind) ind.classList.remove('hidden');
+        });
+      }
+      if (jContent) {
+        jContent.addEventListener('input', () => {
+          localStorage.setItem(DRAFT_KEYS.JOURNAL_CONTENT, jContent.value);
+          const ind = document.getElementById('draft-journal-indicator');
+          if (ind) ind.classList.remove('hidden');
+        });
+      }
+      if (rDetail) {
+        rDetail.addEventListener('input', () => {
+          localStorage.setItem(DRAFT_KEYS.REPORT_DETAIL, rDetail.value);
+          const ind = document.getElementById('draft-report-indicator');
+          if (ind) ind.classList.remove('hidden');
+        });
+      }
+      if (mNotes) {
+        mNotes.addEventListener('input', () => {
+          localStorage.setItem(DRAFT_KEYS.MOOD_NOTES, mNotes.value);
+          const ind = document.getElementById('draft-mood-indicator');
+          if (ind) ind.classList.remove('hidden');
+        });
+      }
+    }
+
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    let cachedJournals = [];
+    let cachedMoods = [];
+    let cachedStudentSurveyResults = null;
+
+    // =========================================================================
+    // AUTHORITATIVE FEELINGS WHEEL DATA & MOOD HELPERS (#3 & DRY)
+    // =========================================================================
+    const FEELINGS_WHEEL_DATA = {
+      Happy: {
+        emoji: '😄',
+        score: 5,
+        name: { id: 'Senang', en: 'Happy' },
+        bgClass: 'bg-amber-50/70 border-amber-200 hover:border-amber-400 text-amber-900',
+        activeClass: 'bg-amber-100 border-amber-500 ring-2 ring-amber-400 text-amber-900',
+        secondary: [
+          { key: 'Optimistic', emoji: '😊', name: { id: 'Optimis', en: 'Optimistic' } },
+          { key: 'Intimate', emoji: '🥰', name: { id: 'Hangat / Intim', en: 'Intimate' } },
+          { key: 'Peaceful', emoji: '😌', name: { id: 'Damai', en: 'Peaceful' } },
+          { key: 'Powerful', emoji: '💪', name: { id: 'Bertenaga', en: 'Powerful' } },
+          { key: 'Accepted', emoji: '🤗', name: { id: 'Diterima', en: 'Accepted' } },
+          { key: 'Proud', emoji: '😎', name: { id: 'Bangga', en: 'Proud' } },
+          { key: 'Interested', emoji: '🧐', name: { id: 'Tertarik', en: 'Interested' } },
+          { key: 'Joyful', emoji: '🥳', name: { id: 'Gembira', en: 'Joyful' } }
+        ]
+      },
+      Surprise: {
+        emoji: '😲',
+        score: 4,
+        name: { id: 'Terkejut', en: 'Surprise' },
+        bgClass: 'bg-sky-50/70 border-sky-200 hover:border-sky-400 text-sky-900',
+        activeClass: 'bg-sky-100 border-sky-500 ring-2 ring-sky-400 text-sky-900',
+        secondary: [
+          { key: 'Startled', emoji: '😳', name: { id: 'Kaget', en: 'Startled' } },
+          { key: 'Confused', emoji: '😕', name: { id: 'Bingung', en: 'Confused' } },
+          { key: 'Amazed', emoji: '✨', name: { id: 'Takjub', en: 'Amazed' } },
+          { key: 'Excited', emoji: '🤩', name: { id: 'Bersemangat', en: 'Excited' } }
+        ]
+      },
+      Sad: {
+        emoji: '😢',
+        score: 2,
+        name: { id: 'Sedih', en: 'Sad' },
+        bgClass: 'bg-blue-50/70 border-blue-200 hover:border-blue-400 text-blue-900',
+        activeClass: 'bg-blue-100 border-blue-500 ring-2 ring-blue-400 text-blue-900',
+        secondary: [
+          { key: 'Bored', emoji: '😑', name: { id: 'Bosan', en: 'Bored' } },
+          { key: 'Lonely', emoji: '🥺', name: { id: 'Kesepian', en: 'Lonely' } },
+          { key: 'Depressed', emoji: '😞', name: { id: 'Murung', en: 'Depressed' } },
+          { key: 'Despair', emoji: '😩', name: { id: 'Putus Asa', en: 'Despair' } },
+          { key: 'Abandoned', emoji: '🥀', name: { id: 'Ditinggalkan', en: 'Abandoned' } },
+          { key: 'Guilty', emoji: '😔', name: { id: 'Bersalah', en: 'Guilty' } }
+        ]
+      },
+      Disgust: {
+        emoji: '🤢',
+        score: 2,
+        name: { id: 'Muak', en: 'Disgust' },
+        bgClass: 'bg-purple-50/70 border-purple-200 hover:border-purple-400 text-purple-900',
+        activeClass: 'bg-purple-100 border-purple-500 ring-2 ring-purple-400 text-purple-900',
+        secondary: [
+          { key: 'Avoidance', emoji: '🙈', name: { id: 'Menghindar', en: 'Avoidance' } },
+          { key: 'Awful', emoji: '😖', name: { id: 'Buruk Sekali', en: 'Awful' } },
+          { key: 'Disappointed', emoji: '😒', name: { id: 'Kecewa', en: 'Disappointed' } },
+          { key: 'Disapproval', emoji: '🙅', name: { id: 'Tidak Setuju', en: 'Disapproval' } }
+        ]
+      },
+      Anger: {
+        emoji: '😠',
+        score: 1,
+        name: { id: 'Marah', en: 'Anger' },
+        bgClass: 'bg-rose-50/70 border-rose-200 hover:border-rose-400 text-rose-900',
+        activeClass: 'bg-rose-100 border-rose-500 ring-2 ring-rose-400 text-rose-900',
+        secondary: [
+          { key: 'Critical', emoji: '🤨', name: { id: 'Kritis', en: 'Critical' } },
+          { key: 'Distant', emoji: '😐', name: { id: 'Menjauh / Dingin', en: 'Distant' } },
+          { key: 'Frustrated', emoji: '😤', name: { id: 'Frustrasi', en: 'Frustrated' } },
+          { key: 'Aggressive', emoji: '💢', name: { id: 'Agresif', en: 'Aggressive' } },
+          { key: 'Mad', emoji: '😡', name: { id: 'Geram', en: 'Mad' } },
+          { key: 'Hateful', emoji: '🤬', name: { id: 'Benci', en: 'Hateful' } },
+          { key: 'Threatened', emoji: '🛡️', name: { id: 'Terancam', en: 'Threatened' } },
+          { key: 'Hurt', emoji: '💔', name: { id: 'Sakit Hati', en: 'Hurt' } }
+        ]
+      },
+      Fear: {
+        emoji: '😨',
+        score: 1,
+        name: { id: 'Takut', en: 'Fear' },
+        bgClass: 'bg-emerald-50/70 border-emerald-200 hover:border-emerald-400 text-emerald-900',
+        activeClass: 'bg-emerald-100 border-emerald-500 ring-2 ring-emerald-400 text-emerald-900',
+        secondary: [
+          { key: 'Humiliated', emoji: '😖', name: { id: 'Malu / Terhina', en: 'Humiliated' } },
+          { key: 'Rejected', emoji: '🚫', name: { id: 'Ditolak', en: 'Rejected' } },
+          { key: 'Submissive', emoji: '🙇', name: { id: 'Tunduk', en: 'Submissive' } },
+          { key: 'Insecure', emoji: '😟', name: { id: 'Insecure', en: 'Insecure' } },
+          { key: 'Anxious', emoji: '😰', name: { id: 'Cemas', en: 'Anxious' } },
+          { key: 'Scared', emoji: '😱', name: { id: 'Ketakutan', en: 'Scared' } }
+        ]
+      }
+    };
+
+    // Helper: Resolve mood level to emoticon, score, and localized label
+    function getMoodMeta(moodLevel) {
+      if (!moodLevel) {
+        return { emoji: '✨', label: 'Mood', rawLabel: 'Mood', score: 3, coreKey: null, secKey: null };
+      }
+
+      const lang = (typeof currentLang !== 'undefined' && currentLang === 'en') ? 'en' : 'id';
+      const str = String(moodLevel).trim();
+
+      // Check "Core - Secondary" format
+      const parts = str.split(' - ');
+      const rawCore = parts[0].trim();
+      const rawSec = parts[1] ? parts[1].trim() : null;
+
+      const coreEntry = Object.entries(FEELINGS_WHEEL_DATA).find(([k, v]) => 
+        k.toLowerCase() === rawCore.toLowerCase() || 
+        (v.name && ((v.name.id && v.name.id.toLowerCase() === rawCore.toLowerCase()) || 
+                    (v.name.en && v.name.en.toLowerCase() === rawCore.toLowerCase())))
+      );
+
+      if (coreEntry) {
+        const [coreKey, coreData] = coreEntry;
+        const coreName = coreData.name[lang] || coreData.name.en || coreKey;
+        if (rawSec) {
+          const secData = coreData.secondary.find(s => 
+            s.key.toLowerCase() === rawSec.toLowerCase() ||
+            (s.name && ((s.name.id && s.name.id.toLowerCase() === rawSec.toLowerCase()) ||
+                        (s.name.en && s.name.en.toLowerCase() === rawSec.toLowerCase())))
+          );
+          if (secData) {
+            const secName = secData.name[lang] || secData.name.en || secData.key;
+            return {
+              emoji: secData.emoji || coreData.emoji,
+              label: `${coreName} - ${secName}`,
+              rawLabel: `${coreKey} - ${secData.key}`,
+              score: coreData.score,
+              coreKey: coreKey,
+              secKey: secData.key
+            };
+          }
+          return {
+            emoji: coreData.emoji,
+            label: `${coreName} - ${rawSec}`,
+            rawLabel: str,
+            score: coreData.score,
+            coreKey: coreKey,
+            secKey: rawSec
+          };
+        }
+        return {
+          emoji: coreData.emoji,
+          label: coreName,
+          rawLabel: coreKey,
+          score: coreData.score,
+          coreKey: coreKey,
+          secKey: null
+        };
+      }
+
+      // Legacy Mood Mapping
+      const legacyMap = {
+        'Hebat': { emoji: '🤩', score: 5, label: 'Hebat' },
+        'Baik': { emoji: '😊', score: 4, label: 'Baik' },
+        'B aja': { emoji: '😐', score: 3, label: 'B aja' },
+        'Netral': { emoji: '😐', score: 3, label: 'Netral' },
+        'Lelah': { emoji: '😔', score: 2, label: 'Lelah' },
+        'Stres': { emoji: '😫', score: 1, label: 'Stres' }
+      };
+
+      if (legacyMap[str]) {
+        return {
+          emoji: legacyMap[str].emoji,
+          label: legacyMap[str].label,
+          rawLabel: str,
+          score: legacyMap[str].score,
+          coreKey: null,
+          secKey: null
+        };
+      }
+
+      // Fallback prefix search
+      const lower = str.toLowerCase();
+      if (lower.startsWith('happy') || lower.startsWith('hebat') || lower.startsWith('senang')) {
+        return { emoji: '😄', label: str, rawLabel: str, score: 5, coreKey: 'Happy', secKey: null };
+      }
+      if (lower.startsWith('surprise') || lower.startsWith('terkejut') || lower.startsWith('kaget') || lower.startsWith('baik')) {
+        return { emoji: '😲', label: str, rawLabel: str, score: 4, coreKey: 'Surprise', secKey: null };
+      }
+      if (lower.startsWith('sad') || lower.startsWith('sedih') || lower.startsWith('lelah')) {
+        return { emoji: '😢', label: str, rawLabel: str, score: 2, coreKey: 'Sad', secKey: null };
+      }
+      if (lower.startsWith('disgust') || lower.startsWith('muak')) {
+        return { emoji: '🤢', label: str, rawLabel: str, score: 2, coreKey: 'Disgust', secKey: null };
+      }
+      if (lower.startsWith('anger') || lower.startsWith('marah') || lower.startsWith('stres')) {
+        return { emoji: '😠', label: str, rawLabel: str, score: 1, coreKey: 'Anger', secKey: null };
+      }
+      if (lower.startsWith('fear') || lower.startsWith('takut') || lower.startsWith('cemas')) {
+        return { emoji: '😨', label: str, rawLabel: str, score: 1, coreKey: 'Fear', secKey: null };
+      }
+
+      return { emoji: '✨', label: str, rawLabel: str, score: 3, coreKey: null, secKey: null };
+    }
+
+    function openMoodDetail(moodId) {
+      const mood = (cachedMoods || []).find(m => String(m.id) === String(moodId));
+      if (!mood) return;
+
+      const meta = getMoodMeta(mood.mood_level);
+      const d = mood.timestamp ? new Date(mood.timestamp) : null;
+      const dateFormatted = (d && !isNaN(d.getTime()))
+        ? d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : 'Waktu tidak diketahui';
+
+      const modalEmoji = document.getElementById('modal-mood-emoji');
+      const modalTitle = document.getElementById('modal-mood-title');
+      const modalDate = document.getElementById('modal-mood-date');
+      const modalScore = document.getElementById('modal-mood-score');
+
+      if (modalEmoji) modalEmoji.innerText = meta.emoji;
+      if (modalTitle) modalTitle.innerText = meta.label || mood.mood_level || 'Mood';
+      if (modalDate) modalDate.innerText = dateFormatted;
+      if (modalScore) modalScore.innerText = `Skor: ${mood.mood_score || meta.score || 3} / 5`;
+
+      const triggersContainer = document.getElementById('modal-mood-triggers');
+      if (triggersContainer) {
+        if (mood.triggers) {
+          const trigList = Array.isArray(mood.triggers) ? mood.triggers : String(mood.triggers).split(',');
+          triggersContainer.innerHTML = trigList.map(t => 
+            `<span class="text-xs bg-teal-50 text-teal-800 border border-teal-200 font-semibold px-2.5 py-1 rounded-xl">${escapeHtml(t.trim())}</span>`
+          ).join('');
+        } else {
+          triggersContainer.innerHTML = `<span class="text-xs text-slate-400 italic">Tidak ada faktor pemicu khusus</span>`;
+        }
+      }
+
+      const notesEl = document.getElementById('modal-mood-notes');
+      if (notesEl) {
+        notesEl.innerText = mood.notes && mood.notes.trim() ? mood.notes : 'Tidak ada catatan tambahan.';
+      }
+
+      const modal = document.getElementById('modal-mood-detail');
+      if (modal) modal.classList.remove('hidden');
+      if (typeof initIcons === 'function') initIcons();
+    }
+
+    function closeMoodDetailModal() {
+      const modal = document.getElementById('modal-mood-detail');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    // Global modal accessibility: Escape key & backdrop click dismissal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => {
+          // Do not dismiss mandatory onboarding or auth modals with Escape
+          if (modal.id === 'auth-required-modal' || modal.id === 'student-onboarding-modal') return;
+          modal.classList.add('hidden');
+        });
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.fixed.inset-0').forEach(modal => {
+        if (modal.id === 'auth-required-modal' || modal.id === 'student-onboarding-modal') return;
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.classList.add('hidden');
+          }
+        });
+      });
+    });
+
+    // =========================================================================
+    // AUTO-RUN SAAT HALAMAN DIMUAT (SESSION & ONBOARDING ROUTER)
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', async () => {
+      setLanguage(currentLang);
+      initIcons();
+      initDraftRecovery();
+
+      // 1. Dapatkan email Google aktif dari konteks server (Google Apps Script SSO)
+      let activeEmail = (SERVER_CONTEXT && SERVER_CONTEXT.activeEmail) ? SERVER_CONTEXT.activeEmail.trim() : '';
+
+      // Jika tidak ada email akun Google yang aktif, tampilkan layar login resmi Google (ALCOA compliant)
+      if (!activeEmail) {
+        document.getElementById('auth-required-modal').classList.remove('hidden');
+        setLanguage(currentLang);
+        initIcons();
+        return;
+      }
+
+      // 2. Jika data pengguna sudah terdeteksi dari serverContext
+      if (SERVER_CONTEXT && SERVER_CONTEXT.detectedUser) {
+        currentUser = SERVER_CONTEXT.detectedUser;
+        if (currentUser.needsClassOnboarding) {
+          document.getElementById('onboarding-student-email').value = currentUser.email;
+          document.getElementById('onboarding-student-name').value = currentUser.name || currentUser.email.split('@')[0];
+          document.getElementById('onboarding-student-class').value = '';
+          document.getElementById('student-onboarding-modal').classList.remove('hidden');
+          setLanguage(currentLang);
+        initIcons();
+          return;
+        }
+        localStorage.setItem('wellbeing_user_session', JSON.stringify(currentUser));
+        routeUserByRole();
+        return;
+      }
+
+      // 3. Verifikasi akun aktif ke database Google Sheets
+      try {
+        const sessionInfo = await callServer('checkUserSession', [activeEmail]);
+        if (sessionInfo && sessionInfo.needsClassOnboarding) {
+          document.getElementById('onboarding-student-email').value = activeEmail;
+          document.getElementById('onboarding-student-name').value = sessionInfo.name || activeEmail.split('@')[0];
+          document.getElementById('onboarding-student-class').value = '';
+          document.getElementById('student-onboarding-modal').classList.remove('hidden');
+          setLanguage(currentLang);
+        initIcons();
+          return;
+        }
+
+        currentUser = sessionInfo;
+        localStorage.setItem('wellbeing_user_session', JSON.stringify(currentUser));
+        routeUserByRole();
+      } catch (err) {
+        console.error('Session sync error:', err);
+        showToast('Gagal memverifikasi akun Google: ' + err.message, '❌');
+      }
+    });
+  </script>

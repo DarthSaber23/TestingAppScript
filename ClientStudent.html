@@ -1,0 +1,2044 @@
+<script>
+    // Pindah Tab Siswa (Navigasi Bottom Bar)
+    function switchTab(tabId, element) {
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      
+      const target = document.getElementById('tab-' + tabId);
+      if (target) target.classList.add('active');
+
+      // Update bottom nav active classes
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+      const activeNavBtn = document.querySelector(`.nav-btn[onclick*="'${tabId}'"]`);
+      if (activeNavBtn) activeNavBtn.classList.add('active');
+      if (element && element.classList.contains('nav-btn')) element.classList.add('active');
+
+      if (tabId === 'checkin') {
+        loadStudentMoodTrend();
+        loadActiveSurvey();
+      }
+      if (tabId === 'chat') {
+        loadStudentAppointments();
+      }
+      if (tabId === 'journal') {
+        loadJournals();
+      }
+      if (tabId === 'resources') {
+        loadEducationalArticles();
+      }
+      if (tabId === 'survey') {
+        loadStudentSurveyResults();
+      }
+      initIcons();
+    }
+
+    // =========================================================================
+    // 2-LEVEL FEELINGS WHEEL CONTROLLER (#3)
+    // =========================================================================
+    let selectedCoreMood = null;
+    let isSubmittingMood = false;
+
+    // Render 6 Core Emotion cards into #mood-selector using authoritative FEELINGS_WHEEL_DATA color identities
+    function renderFeelingsWheelSelector() {
+      const container = document.getElementById('mood-selector');
+      if (!container) return;
+
+      const lang = (typeof currentLang !== 'undefined' && currentLang === 'en') ? 'en' : 'id';
+      
+      container.innerHTML = Object.entries(FEELINGS_WHEEL_DATA).map(([coreKey, core]) => {
+        const isSelected = selectedCoreMood === coreKey;
+        const localizedName = core.name[lang] || core.name.en || coreKey;
+        const activeStyles = isSelected ? `${core.activeClass} font-black` : core.bgClass;
+
+        return `
+          <button type="button" data-mood="${coreKey}" data-core="${coreKey}" onclick="selectMood('${coreKey}', this)" class="mood-core-btn p-3 border rounded-2xl flex flex-col items-center transition transform hover:-translate-y-0.5 cursor-pointer ${activeStyles}">
+            <span class="text-2xl sm:text-3xl">${core.emoji}</span>
+            <span class="text-[11px] sm:text-xs font-bold mt-1 text-center">${escapeHtml(localizedName)}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    // Level 1: Pilih Emosi Utama
+    function selectMood(coreKey, element) {
+      selectedCoreMood = coreKey;
+      selectedMoodVal = coreKey; // Default ke core emotion jika secondary tidak dipilih
+
+      renderFeelingsWheelSelector();
+
+      // Populate Secondary Emotions Drawer
+      const secContainer = document.getElementById('secondary-mood-container');
+      const secPills = document.getElementById('secondary-mood-pills');
+      const coreData = FEELINGS_WHEEL_DATA[coreKey];
+
+      if (secContainer && secPills && coreData && Array.isArray(coreData.secondary)) {
+        const lang = (typeof currentLang !== 'undefined' && currentLang === 'en') ? 'en' : 'id';
+        secPills.innerHTML = coreData.secondary.map(sec => {
+          const secName = sec.name[lang] || sec.name.en || sec.key;
+          return `
+            <button type="button" data-sec="${sec.key}" onclick="selectSecondaryMood('${sec.key}', this)" class="mood-sec-pill text-xs px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-teal-50 hover:border-teal-300 text-slate-700 font-medium transition cursor-pointer select-none">
+              <span>${sec.emoji}</span>
+              <span class="ml-1">${escapeHtml(secName)}</span>
+            </button>
+          `;
+        }).join('');
+        secContainer.classList.remove('hidden');
+      }
+    }
+
+    // Level 2: Pilih Emosi Spesifik (Secondary)
+    function selectSecondaryMood(secKey, element) {
+      if (!selectedCoreMood) return;
+      selectedMoodVal = `${selectedCoreMood} - ${secKey}`;
+
+      document.querySelectorAll('#secondary-mood-pills button').forEach(b => {
+        b.classList.remove('bg-teal-600', 'text-white', 'border-teal-600', 'ring-2', 'ring-teal-300', 'font-bold');
+        b.classList.add('bg-white', 'text-slate-700', 'border-slate-200');
+      });
+
+      if (element) {
+        element.classList.remove('bg-white', 'text-slate-700', 'border-slate-200');
+        element.classList.add('bg-teal-600', 'text-white', 'border-teal-600', 'ring-2', 'ring-teal-300', 'font-bold');
+      }
+    }
+
+    // Toggle Collapsible Drawer Riwayat & Catatan Mood Siswa
+    function toggleStudentMoodRemarks() {
+      const drawer = document.getElementById('student-mood-remarks-drawer');
+      const chevron = document.getElementById('student-mood-chevron');
+      if (!drawer) return;
+      const isHidden = drawer.classList.toggle('hidden');
+      if (chevron) {
+        if (isHidden) {
+          chevron.classList.remove('rotate-180');
+        } else {
+          chevron.classList.add('rotate-180');
+        }
+      }
+    }
+
+    // Toggle Pemicu
+    function toggleChip(element) {
+      element.classList.toggle('bg-teal-600');
+      element.classList.toggle('text-white');
+      element.classList.toggle('border-teal-600');
+      const val = element.innerText.trim();
+      if (selectedTriggers.includes(val)) {
+        selectedTriggers = selectedTriggers.filter(t => t !== val);
+      } else {
+        selectedTriggers.push(val);
+      }
+    }
+
+    // Submit Mood with Concurrency Guard (#6)
+    async function saveMoodCheckin() {
+      if (isSubmittingMood) return;
+
+      if (!selectedMoodVal) {
+        showToast('Pilih salah satu emoji mood terlebih dahulu!', '⚠️');
+        return;
+      }
+
+      const meta = getMoodMeta(selectedMoodVal);
+      const notesEl = document.getElementById('mood-notes');
+      const moodNotes = notesEl ? notesEl.value.trim() : '';
+      const btnSave = document.getElementById('btn-save-mood');
+      const originalBtnHtml = btnSave ? btnSave.innerHTML : '';
+
+      isSubmittingMood = true;
+      if (btnSave) {
+        btnSave.disabled = true;
+        btnSave.classList.add('opacity-70', 'cursor-not-allowed');
+        btnSave.innerHTML = `<span class="animate-spin inline-block mr-2">⏳</span><span>Menyimpan...</span>`;
+      }
+
+      try {
+        await callServer('submitMood', [{
+          moodLevel: selectedMoodVal,
+          moodScore: meta.score || 3,
+          triggers: selectedTriggers,
+          notes: moodNotes
+        }]);
+        showToast('Mood berhasil dicatat! Mood kamu berhasil dicatat hari ini.', '🎉');
+        
+        // Reset inputs and draft
+        if (notesEl) notesEl.value = '';
+        localStorage.removeItem(DRAFT_KEYS.MOOD_NOTES);
+        const draftInd = document.getElementById('draft-mood-indicator');
+        if (draftInd) draftInd.classList.add('hidden');
+
+        selectedMoodVal = null;
+        selectedCoreMood = null;
+        selectedTriggers = [];
+
+        renderFeelingsWheelSelector();
+
+        const secContainer = document.getElementById('secondary-mood-container');
+        const secPills = document.getElementById('secondary-mood-pills');
+        if (secPills) secPills.innerHTML = '';
+        if (secContainer) secContainer.classList.add('hidden');
+
+        document.querySelectorAll('#trigger-chips .chip').forEach(c => {
+          c.classList.remove('bg-teal-600', 'text-white', 'border-teal-600');
+          c.classList.add('bg-slate-50', 'text-slate-700', 'border-slate-200');
+        });
+
+        await loadStudentMoodTrend();
+      } catch (err) {
+        showToast('Gagal menyimpan mood: ' + err.message, '❌');
+      } finally {
+        isSubmittingMood = false;
+        if (btnSave) {
+          btnSave.disabled = false;
+          btnSave.classList.remove('opacity-70', 'cursor-not-allowed');
+          btnSave.innerHTML = originalBtnHtml;
+        }
+      }
+    }
+
+    // =========================================================================
+    // STUDENT PERSONAL 7-DAY MOOD TREND (INTERACTIVE SVG CHART)
+    // =========================================================================
+    async function loadStudentMoodTrend() {
+      try {
+        renderFeelingsWheelSelector();
+
+        const [historyRes, trendData] = await Promise.all([
+          callServer('getStudentMoodHistory', []).catch(() => ({ success: false, data: [] })),
+          callServer('getStudentMoodTrend', [7]).catch(() => [])
+        ]);
+
+        const historyData = (historyRes && Array.isArray(historyRes.data)) ? historyRes.data : [];
+        cachedMoods = historyData;
+
+        // Update streak badge
+        const streak = (historyRes && typeof historyRes.streakDays === 'number') ? historyRes.streakDays : 0;
+        const streakBadge = document.getElementById('mood-streak-badge');
+        if (streakBadge) {
+          streakBadge.innerText = t('mood.streak_days', { days: streak });
+        }
+
+        renderStudentMoodTrend(trendData || []);
+        renderStudentMoodHistory(historyData);
+      } catch (err) {
+        console.error('Gagal memuat tren mood siswa:', err);
+      }
+    }
+
+    function renderStudentMoodHistory(historyData) {
+      const container = document.getElementById('mood-history-list');
+      const badge = document.getElementById('mood-count-badge');
+      if (!container) return;
+
+      const items = Array.isArray(historyData) ? historyData : [];
+      if (badge) badge.innerText = `${items.length} Catatan`;
+
+      if (items.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-1">
+            <span class="text-2xl block mb-1">🌱</span>
+            <p class="text-xs font-semibold text-slate-600">Belum Ada Riwayat Check-in</p>
+            <p class="text-[11px] text-slate-400">Pilih salah satu emosi di atas untuk memulai catatan harianmu.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = items.map(m => {
+        const meta = getMoodMeta(m.mood_level);
+        const d = m.timestamp ? new Date(m.timestamp) : null;
+        const dateStr = (d && !isNaN(d.getTime()))
+          ? d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+          : 'Catatan';
+        const timeStr = (d && !isNaN(d.getTime()))
+          ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+          : '';
+
+        let triggersHtml = '';
+        if (m.triggers) {
+          const trigList = Array.isArray(m.triggers) ? m.triggers : String(m.triggers).split(',');
+          triggersHtml = trigList.map(t => `<span class="text-[9px] bg-teal-50 text-teal-700 border border-teal-200/70 font-semibold px-2 py-0.5 rounded-full">${escapeHtml(t.trim())}</span>`).join(' ');
+        }
+
+        let noteSnippet = '';
+        if (m.notes && m.notes.trim()) {
+          const rawNote = m.notes.trim();
+          const truncated = rawNote.length > 80 ? rawNote.slice(0, 80) + '...' : rawNote;
+          noteSnippet = `<p class="text-xs text-slate-600 line-clamp-2 mt-1 bg-slate-50/80 p-2 rounded-xl border border-slate-100 font-medium">${escapeHtml(truncated)}</p>`;
+        } else {
+          noteSnippet = `<p class="text-[10px] text-slate-400 italic mt-0.5">Tidak ada catatan tambahan</p>`;
+        }
+
+        return `
+          <div data-mood-id="${escapeHtml(m.id)}" onclick="event.stopPropagation(); openMoodDetail('${escapeHtml(m.id)}')" class="mood-history-item p-3.5 bg-white border border-slate-200 rounded-2xl hover:border-teal-400 hover:shadow-md transition cursor-pointer space-y-1.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <span class="text-2xl">${meta.emoji}</span>
+                <div>
+                  <h4 class="text-xs font-bold text-slate-900">${escapeHtml(meta.label || m.mood_level)}</h4>
+                  <p class="text-[10px] text-slate-400">${escapeHtml(dateStr)} • ${escapeHtml(timeStr)}</p>
+                </div>
+              </div>
+              <span class="text-[10px] font-bold text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
+                Skor: ${m.mood_score || meta.score || 3} / 5
+              </span>
+            </div>
+            ${triggersHtml ? `<div class="flex flex-wrap gap-1 pt-0.5">${triggersHtml}</div>` : ''}
+            ${noteSnippet}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeTrendAttr(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function renderStudentMoodTrend(trendData) {
+      const svg = document.getElementById('svg-student-mood-trend');
+      if (!svg) return;
+
+      const shortDays = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+      // Rentang 7 hari terakhir (6 hari lalu sampai hari ini)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        days.push({
+          dateObj: d,
+          dayName: i === 0 ? 'Hari ini' : shortDays[d.getDay()],
+          dateLabel: `${d.getDate()}/${d.getMonth() + 1}`,
+          index: 6 - i
+        });
+      }
+
+      const xStart = 60;
+      const xEnd = 470;
+      const stepX = (xEnd - xStart) / 6;
+
+      function getY(score) {
+        return 155 - (score - 1) * 32.5; // score 1 -> 155, score 5 -> 25
+      }
+
+      // Kelompokkan data mood berdasarkan hari
+      const itemsByDay = {};
+      const validItems = (trendData || []).filter(item => item && item.mood_level);
+      validItems.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      validItems.forEach(item => {
+        const itemDate = new Date(item.timestamp || Date.now());
+        const itemMidnight = new Date(itemDate);
+        itemMidnight.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((today.getTime() - itemMidnight.getTime()) / 86400000);
+        if (diffDays < 0 || diffDays > 6) return;
+        const dayIndex = 6 - diffDays;
+        if (!itemsByDay[dayIndex]) itemsByDay[dayIndex] = [];
+        itemsByDay[dayIndex].push(item);
+      });
+
+      // Siapkan titik koordinat data
+      const points = [];
+      for (let d = 0; d <= 6; d++) {
+        const dayItems = itemsByDay[d] || [];
+        const k = dayItems.length;
+        dayItems.forEach((item, idx) => {
+          const center = xStart + d * stepX;
+          const offset = k > 1 ? (idx - (k - 1) / 2) * 16 : 0;
+          const x = center + offset;
+          const meta = getMoodMeta(item.mood_level);
+          const score = Number(item.mood_score) || meta.score || 3;
+          const y = getY(score);
+
+          const itemDate = new Date(item.timestamp || Date.now());
+          const dateStr = !isNaN(itemDate.getTime())
+            ? `${shortDays[itemDate.getDay()]}, ${itemDate.getDate()} ${monthNames[itemDate.getMonth()]} • ${String(itemDate.getHours()).padStart(2, '0')}:${String(itemDate.getMinutes()).padStart(2, '0')}`
+            : '';
+
+          points.push({
+            x,
+            y,
+            moodLevel: item.mood_level,
+            score,
+            dateStr,
+            triggers: item.triggers || ''
+          });
+        });
+      }
+
+      // Header defs SVG
+      let svgHtml = `
+        <defs>
+          <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#0d9488" stop-opacity="0.25" />
+            <stop offset="100%" stop-color="#0d9488" stop-opacity="0.0" />
+          </linearGradient>
+          <linearGradient id="trendLineGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#14b8a6" />
+            <stop offset="100%" stop-color="#0d9488" />
+          </linearGradient>
+          <filter id="pointShadow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#0f172a" flood-opacity="0.2" />
+          </filter>
+        </defs>
+      `;
+
+      // Garis grid horizontal level mood 1-5 dengan emoji
+      const levels = [
+        { score: 5, emoji: '😄' },
+        { score: 4, emoji: '😲' },
+        { score: 3, emoji: '😐' },
+        { score: 2, emoji: '😢' },
+        { score: 1, emoji: '😠' }
+      ];
+
+      levels.forEach(lvl => {
+        const y = getY(lvl.score);
+        svgHtml += `
+          <line x1="45" y1="${y}" x2="485" y2="${y}" stroke="#e2e8f0" stroke-dasharray="3 3" stroke-width="1" />
+          <text x="24" y="${y + 4}" font-size="12" text-anchor="middle" dominant-baseline="central">${lvl.emoji}</text>
+        `;
+      });
+
+      // Garis panduan vertikal & label tanggal sumbu X
+      days.forEach(d => {
+        const dayX = xStart + d.index * stepX;
+        const isToday = d.index === 6;
+        svgHtml += `
+          <line x1="${dayX}" y1="20" x2="${dayX}" y2="160" stroke="#f1f5f9" stroke-width="1" />
+          <text x="${dayX}" y="176" font-size="10" font-weight="${isToday ? '800' : '600'}" fill="${isToday ? '#0d9488' : '#64748b'}" text-anchor="middle">${d.dayName}</text>
+          <text x="${dayX}" y="188" font-size="8.5" fill="${isToday ? '#0d9488' : '#94a3b8'}" text-anchor="middle">${d.dateLabel}</text>
+        `;
+      });
+
+      // Gambar Polyline dan Gradient Fill jika ada >= 2 titik
+      if (points.length >= 2) {
+        const polylinePoints = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+        const areaPathD = `M ${points[0].x.toFixed(1)} 155 L ${points.map(p => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ')} L ${points[points.length - 1].x.toFixed(1)} 155 Z`;
+
+        svgHtml += `
+          <path d="${areaPathD}" fill="url(#trendGradient)" />
+          <polyline points="${polylinePoints}" fill="none" stroke="url(#trendLineGrad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+        `;
+      } else if (points.length === 0) {
+        svgHtml += `
+          <text x="265" y="92" font-size="11" fill="#94a3b8" text-anchor="middle" font-weight="500">Belum ada catatan mood 7 hari terakhir.</text>
+          <text x="265" y="108" font-size="10" fill="#0d9488" text-anchor="middle" font-weight="600">Catat perasaanmu sekarang di atas! 👆</text>
+        `;
+      } else if (points.length === 1) {
+        // Halo ring untuk single point
+        svgHtml += `
+          <circle cx="${points[0].x.toFixed(1)}" cy="${points[0].y.toFixed(1)}" r="12" fill="#0d9488" opacity="0.15" pointer-events="none" />
+        `;
+      }
+
+      // Gambar titik lingkaran interaktif
+      points.forEach(p => {
+        svgHtml += `
+          <circle class="trend-point cursor-pointer transition-all duration-150"
+            cx="${p.x.toFixed(1)}"
+            cy="${p.y.toFixed(1)}"
+            r="6.5"
+            fill="#0d9488"
+            stroke="#ffffff"
+            stroke-width="2.5"
+            filter="url(#pointShadow)"
+            data-date="${escapeTrendAttr(p.dateStr)}"
+            data-mood="${escapeTrendAttr(p.moodLevel)}"
+            data-score="${p.score}"
+            data-triggers="${escapeTrendAttr(p.triggers)}"
+            style="pointer-events: auto;" />
+        `;
+      });
+
+      svg.innerHTML = svgHtml;
+
+      // Event listener tooltip interaktif
+      const tooltip = document.getElementById('mood-trend-tooltip');
+      const tooltipParent = tooltip ? tooltip.parentElement : null;
+      const dots = svg.querySelectorAll('circle.trend-point');
+
+      dots.forEach(dot => {
+        const handleEnter = () => {
+          if (!tooltip || !tooltipParent) return;
+
+          const dateText = dot.getAttribute('data-date') || '';
+          const moodText = dot.getAttribute('data-mood') || '';
+          const triggersText = dot.getAttribute('data-triggers') || '';
+          const meta = getMoodMeta(moodText);
+          const emoji = meta.emoji || '✨';
+
+          const tDate = document.getElementById('tooltip-date');
+          const tMood = document.getElementById('tooltip-mood');
+          const tTriggers = document.getElementById('tooltip-triggers');
+
+          if (tDate) tDate.textContent = dateText;
+          if (tMood) tMood.textContent = `${emoji} ${meta.label || moodText}`;
+          if (tTriggers) {
+            if (triggersText && triggersText.trim()) {
+              tTriggers.textContent = 'Faktor: ' + triggersText;
+              tTriggers.classList.remove('hidden');
+            } else {
+              tTriggers.textContent = 'Refleksi Harian';
+              tTriggers.classList.remove('hidden');
+            }
+          }
+
+          const parentRect = tooltipParent.getBoundingClientRect();
+          const dotRect = dot.getBoundingClientRect();
+          const left = dotRect.left - parentRect.left + (dotRect.width / 2);
+          let top = dotRect.top - parentRect.top - 8;
+
+          // Flip ke bawah jika terlalu dekat dengan tepi atas container untuk mencegah overflow
+          if (top < 45) {
+            top = dotRect.bottom - parentRect.top + 8;
+            tooltip.classList.remove('-translate-y-full');
+            tooltip.classList.add('translate-y-0');
+          } else {
+            tooltip.classList.remove('translate-y-0');
+            tooltip.classList.add('-translate-y-full');
+          }
+
+          const clampedLeft = Math.max(50, Math.min(parentRect.width - 50, left));
+          tooltip.style.left = `${clampedLeft}px`;
+          tooltip.style.top = `${top}px`;
+          tooltip.classList.remove('hidden');
+        };
+
+        const handleLeave = () => {
+          if (tooltip) tooltip.classList.add('hidden');
+        };
+
+        dot.addEventListener('mouseenter', handleEnter);
+        dot.addEventListener('mousemove', handleEnter);
+        dot.addEventListener('mouseleave', handleLeave);
+        dot.addEventListener('touchstart', (e) => {
+          e.stopPropagation();
+          handleEnter();
+        });
+      });
+
+      // Tutup tooltip saat tap atau klik di luar titik tren (guarded against duplicate listeners)
+      if (!window._studentTrendTooltipBound) {
+        window._studentTrendTooltipBound = true;
+        document.addEventListener('touchstart', (e) => {
+          const t = document.getElementById('mood-trend-tooltip');
+          if (!e.target.closest('.trend-point') && !e.target.closest('#mood-trend-tooltip')) {
+            if (t) t.classList.add('hidden');
+          }
+        });
+        document.addEventListener('click', (e) => {
+          const t = document.getElementById('mood-trend-tooltip');
+          if (!e.target.closest('.trend-point') && !e.target.closest('#mood-trend-tooltip')) {
+            if (t) t.classList.add('hidden');
+          }
+        });
+      }
+    }
+
+
+    // =========================================================================
+    // STUDENT CATEGORIZED BINARY SURVEY WIZARD & COUNSELOR SURVEY BUILDER
+    // =========================================================================
+    const SURVEY_CATEGORY_PRESETS = [
+      'Business Boost',
+      'Care Core',
+      'Comp Sci Prodigy',
+      'Creative Crew',
+      'Education & Impact',
+      'Government & Law',
+      'Hands-on Hustlers',
+      'STEM Squad'
+    ];
+
+    const SURVEY_MINAT_BAKAT_QUESTIONS = [
+      // A. Business Boost (Bisnis dan Kepemimpinan)
+      { category: 'Business Boost', text: 'Do you like leading or organizing group activities?' },
+      { category: 'Business Boost', text: 'Do you enjoy planning events or managing tasks?' },
+      { category: 'Business Boost', text: 'Do you often think about starting your own business someday?' },
+      { category: 'Business Boost', text: 'Do you enjoy persuading others or making presentations?' },
+      { category: 'Business Boost', text: 'Do you enjoy making decisions and taking responsibility?' },
+
+      // B. Care Core (Kepedulian dan Pelayanan)
+      { category: 'Care Core', text: 'Do you enjoy helping others with their problems?' },
+      { category: 'Care Core', text: 'Do you feel fulfilled when you care for people or animals?' },
+      { category: 'Care Core', text: 'Do you enjoy listening and giving advice to your friends?' },
+      { category: 'Care Core', text: 'Do you want to work in a job that helps people?' },
+      { category: 'Care Core', text: 'Do you feel empathy when others are sad or in pain?' },
+
+      // C. Comp Sci Prodigy (Komputer dan Teknologi)
+      { category: 'Comp Sci Prodigy', text: 'Do you enjoy writing or learning to write code or programs?' },
+      { category: 'Comp Sci Prodigy', text: 'Do you like solving technical problems using logical steps?' },
+      { category: 'Comp Sci Prodigy', text: 'Do you enjoy playing with software, apps, or digital tools?' },
+      { category: 'Comp Sci Prodigy', text: 'Do you want to create your own app, website, or game someday?' },
+      { category: 'Comp Sci Prodigy', text: 'Do you enjoy spending time learning about how computers work?' },
+
+      // D. Creative Crew (Kreativitas dan Seni)
+      { category: 'Creative Crew', text: 'Do you enjoy drawing, painting, or designing things?' },
+      { category: 'Creative Crew', text: 'Do you love making videos, music, or writing stories?' },
+      { category: 'Creative Crew', text: 'Do you enjoy expressing ideas in creative ways?' },
+      { category: 'Creative Crew', text: 'Do you often imagine new things or ideas?' },
+      { category: 'Creative Crew', text: 'Do people say you have a good eye for design or style?' },
+
+      // E. Education & Impact (Pendidikan dan Pengembangan)
+      { category: 'Education & Impact', text: 'Do you enjoy explaining things to others?' },
+      { category: 'Education & Impact', text: 'Do you like helping friends understand school lessons?' },
+      { category: 'Education & Impact', text: 'Do you feel excited when you teach or share knowledge?' },
+      { category: 'Education & Impact', text: "Do you want to make a difference in people's lives?" },
+      { category: 'Education & Impact', text: 'Do you enjoy mentoring or encouraging others?' },
+
+      // F. Government & Law (Pemerintahan dan Hukum)
+      { category: 'Government & Law', text: 'Do you enjoy discussing social or political issues?' },
+      { category: 'Government & Law', text: 'Do you want to make society more fair or just?' },
+      { category: 'Government & Law', text: 'Do you like learning about laws or how governments work?' },
+      { category: 'Government & Law', text: 'Do you enjoy public speaking or debating?' },
+      { category: 'Government & Law', text: 'Do you want to lead or create positive change?' },
+
+      // G. Hands-on Hustlers (Praktik dan Keterampilan Teknis)
+      { category: 'Hands-on Hustlers', text: 'Do you enjoy building, fixing, or making things?' },
+      { category: 'Hands-on Hustlers', text: 'Do you prefer hands-on learning over reading or lectures?' },
+      { category: 'Hands-on Hustlers', text: 'Do you enjoy using tools or equipment to create things?' },
+      { category: 'Hands-on Hustlers', text: 'Do you like physical activities and working with your hands?' },
+      { category: 'Hands-on Hustlers', text: 'Do you feel proud when you finish a hands-on project?' },
+
+      // H. STEM Squad (Sains, Teknologi, dan Matematika)
+      { category: 'STEM Squad', text: 'Do you enjoy solving math or logic puzzles?' },
+      { category: 'STEM Squad', text: 'Do you find science experiments exciting?' },
+      { category: 'STEM Squad', text: 'Do you care deeply about the environment?' },
+      { category: 'STEM Squad', text: 'Do you enjoy working with data and numbers?' },
+      { category: 'STEM Squad', text: 'Do you like figuring out how things work?' }
+    ];
+
+    let cachedSurveysList = [];
+
+    function getInterestInterpretation(score) {
+      const pct = Math.round(Number(score) || 0);
+      const yesCount = Math.round((pct / 100) * 5);
+      if (pct >= 90 || yesCount === 5) {
+        return { label: 'Minat sangat kuat', yesCount: 5, badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+      }
+      if (pct >= 70 || yesCount === 4) {
+        return { label: 'Minat kuat', yesCount: 4, badgeClass: 'bg-teal-100 text-teal-800 border-teal-300' };
+      }
+      if (pct >= 50 || yesCount === 3) {
+        return { label: 'Minat sedang', yesCount: 3, badgeClass: 'bg-amber-100 text-amber-800 border-amber-300' };
+      }
+      if (pct >= 30 || yesCount === 2) {
+        return { label: 'Minat rendah', yesCount: 2, badgeClass: 'bg-orange-100 text-orange-800 border-orange-300' };
+      }
+      return { label: 'Minat sangat rendah', yesCount: Math.max(0, yesCount), badgeClass: 'bg-rose-100 text-rose-800 border-rose-300' };
+    }
+
+    let wizardAutoAdvanceTimer = null;
+
+    function clearWizardAutoAdvance() {
+      if (wizardAutoAdvanceTimer) {
+        clearTimeout(wizardAutoAdvanceTimer);
+        wizardAutoAdvanceTimer = null;
+      }
+    }
+
+    function getExistingSurveyResponse(surveyId) {
+      if (!surveyId || !cachedStudentSurveyResults || !Array.isArray(cachedStudentSurveyResults.history)) {
+        return null;
+      }
+      return cachedStudentSurveyResults.history.find(h => String(h.survey_id) === String(surveyId)) || null;
+    }
+
+    async function loadActiveSurvey() {
+      try {
+        const surveys = await callServer('getSurveys', []);
+        cachedSurveysList = surveys || [];
+        if (currentRole === 'STUDENT' || (currentUser && currentUser.role === 'STUDENT')) {
+          try {
+            const resResults = await callServer('getStudentSurveyResults', []);
+            if (resResults) cachedStudentSurveyResults = resResults;
+          } catch (e) {}
+        }
+        const publishedSurveys = (surveys || []).filter(s => s.status === 'PUBLISHED');
+        const banner = document.getElementById('banner-active-survey');
+        const pickerContainer = document.getElementById('survey-picker-container');
+        const pickerSelect = document.getElementById('survey-picker-select');
+
+        if (publishedSurveys.length > 0) {
+          const prevId = currentSurveyData ? currentSurveyData.id : null;
+          const matchingUpdated = prevId ? publishedSurveys.find(s => s.id === prevId) : null;
+          if (matchingUpdated) {
+            currentSurveyData = matchingUpdated;
+          } else {
+            const preferred = publishedSurveys.find(s => s.id === 'surv-001') || publishedSurveys[0];
+            currentSurveyData = preferred;
+          }
+
+          if (pickerContainer && pickerSelect) {
+            if (publishedSurveys.length > 1) {
+              pickerContainer.classList.remove('hidden');
+              pickerSelect.innerHTML = publishedSurveys.map(s => {
+                const qCount = (s.questions || []).length;
+                const isSel = (s.id === currentSurveyData.id) ? 'selected' : '';
+                return `<option value="${escapeHtml(s.id)}" ${isSel}>${escapeHtml(s.title)} (${qCount} Soal)</option>`;
+              }).join('');
+            } else {
+              pickerContainer.classList.add('hidden');
+            }
+          }
+
+          updateSurveyBannerInfo();
+          if (banner) banner.classList.remove('hidden');
+        } else {
+          currentSurveyData = null;
+          if (pickerContainer) pickerContainer.classList.add('hidden');
+          if (banner) banner.classList.add('hidden');
+        }
+      } catch (err) {
+        console.error('Error loading active survey:', err);
+      }
+    }
+
+    function updateSurveyBannerInfo() {
+      if (!currentSurveyData) return;
+      if (document.getElementById('survey-banner-title')) {
+        document.getElementById('survey-banner-title').innerText = currentSurveyData.title || 'Survei Kesejahteraan & Kesiapan Belajar';
+      }
+      if (document.getElementById('survey-banner-desc')) {
+        document.getElementById('survey-banner-desc').innerText = currentSurveyData.description || 'Mari luangkan waktu sejenak untuk mengisi survei evaluasi ini.';
+      }
+      const btnStart = document.getElementById('btn-start-survey');
+      if (btnStart) {
+        const existingResp = getExistingSurveyResponse(currentSurveyData.id);
+        const i18nKey = existingResp ? 'survey.btn_edit' : 'survey.btn_start';
+        const labelSpan = btnStart.querySelector('span[data-i18n]') || btnStart.querySelector('span');
+        if (labelSpan) {
+          labelSpan.setAttribute('data-i18n', i18nKey);
+          labelSpan.innerText = typeof t === 'function' ? t(i18nKey) : (existingResp ? 'Edit Kuesioner' : 'Mulai Kuesioner');
+        } else {
+          btnStart.innerText = typeof t === 'function' ? t(i18nKey) : (existingResp ? 'Edit Kuesioner' : 'Mulai Kuesioner');
+        }
+      }
+    }
+
+    function onSurveyPickerChange(selectedId) {
+      const found = cachedSurveysList.find(s => s.id === selectedId);
+      if (found) {
+        currentSurveyData = found;
+        updateSurveyBannerInfo();
+      }
+    }
+
+    function openSurveyWizard() {
+      if (!currentSurveyData || !currentSurveyData.questions || currentSurveyData.questions.length === 0) {
+        showToast('Survei belum memiliki daftar pertanyaan', '⚠️');
+        return;
+      }
+      clearWizardAutoAdvance();
+      currentQuestionIndex = 0;
+      wizardAnswers = {};
+
+      // Pre-fill previous answers if student is editing an existing submission
+      const existingResp = getExistingSurveyResponse(currentSurveyData.id);
+      if (existingResp && existingResp.answers) {
+        let prevAnswers = existingResp.answers;
+        if (typeof prevAnswers === 'string') {
+          try { prevAnswers = JSON.parse(prevAnswers); } catch (e) { prevAnswers = []; }
+        }
+        if (Array.isArray(prevAnswers)) {
+          currentSurveyData.questions.forEach((q, idx) => {
+            const matched = prevAnswers.find(a => a && String(a.question_id) === String(q.id)) || prevAnswers[idx];
+            if (matched && matched.answer !== undefined && matched.answer !== null && String(matched.answer).trim() !== '') {
+              wizardAnswers[q.id] = {
+                question_id: q.id,
+                category: q.category,
+                question_type: q.question_type || 'BINARY_YES_NO',
+                answer: matched.answer
+              };
+            }
+          });
+        }
+      }
+
+      renderWizardStep();
+      const modal = document.getElementById('modal-survey-wizard');
+      if (modal) modal.classList.remove('hidden');
+      initIcons();
+    }
+
+    function closeSurveyWizard() {
+      clearWizardAutoAdvance();
+      const modal = document.getElementById('modal-survey-wizard');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function isSingleChoiceQuestionType(qType) {
+      const upper = String(qType || 'BINARY_YES_NO').toUpperCase();
+      return upper === 'BINARY_YES_NO' || upper === 'MULTIPLE_CHOICE' || upper === 'LINEAR_SCALE';
+    }
+
+    function highlightWizardButtons(ans) {
+      const btnYes = document.getElementById('btn-wizard-yes');
+      const btnNo = document.getElementById('btn-wizard-no');
+      if (!btnYes || !btnNo) return;
+
+      const baseClass = 'wizard-choice-btn p-4 sm:p-5 rounded-2xl border-2 text-slate-700 font-extrabold text-sm sm:text-base flex flex-col items-center justify-center gap-1.5 transition-all duration-150';
+
+      if (ans === 'YA') {
+        btnYes.className = `${baseClass} border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm ring-2 ring-emerald-300`;
+        btnNo.className = `${baseClass} border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-300`;
+        btnYes.setAttribute('aria-pressed', 'true');
+        btnNo.setAttribute('aria-pressed', 'false');
+      } else if (ans === 'TIDAK') {
+        btnNo.className = `${baseClass} border-rose-500 bg-rose-50 text-rose-700 shadow-sm ring-2 ring-rose-300`;
+        btnYes.className = `${baseClass} border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300`;
+        btnYes.setAttribute('aria-pressed', 'false');
+        btnNo.setAttribute('aria-pressed', 'true');
+      } else {
+        btnYes.className = `${baseClass} border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300`;
+        btnNo.className = `${baseClass} border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-300`;
+        btnYes.setAttribute('aria-pressed', 'false');
+        btnNo.setAttribute('aria-pressed', 'false');
+      }
+    }
+
+    function renderWizardInputArea(q, savedAns) {
+      const inputArea = document.getElementById('survey-wizard-input-area');
+      if (!inputArea) {
+        highlightWizardButtons(savedAns);
+        return;
+      }
+
+      const qType = String(q.question_type || 'BINARY_YES_NO').toUpperCase();
+      const options = Array.isArray(q.options) && q.options.length > 0 ? q.options : ['Opsi 1', 'Opsi 2'];
+
+      if (qType === 'BINARY_YES_NO') {
+        inputArea.innerHTML = `
+          <div class="grid grid-cols-2 gap-4">
+            <button type="button" id="btn-wizard-yes" onclick="selectWizardAnswer('YA', true)" aria-pressed="${savedAns === 'YA' ? 'true' : 'false'}" class="wizard-choice-btn p-4 sm:p-5 rounded-2xl border-2 border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-400 text-slate-700 font-extrabold text-sm sm:text-base flex flex-col items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer">
+              <span class="text-2xl sm:text-3xl">👍</span>
+              <span>YA / YES</span>
+            </button>
+            <button type="button" id="btn-wizard-no" onclick="selectWizardAnswer('TIDAK', true)" aria-pressed="${savedAns === 'TIDAK' ? 'true' : 'false'}" class="wizard-choice-btn p-4 sm:p-5 rounded-2xl border-2 border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-400 text-slate-700 font-extrabold text-sm sm:text-base flex flex-col items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer">
+              <span class="text-2xl sm:text-3xl">👎</span>
+              <span>TIDAK / NO</span>
+            </button>
+          </div>
+        `;
+        highlightWizardButtons(savedAns);
+      } else if (qType === 'MULTIPLE_CHOICE') {
+        inputArea.innerHTML = `
+          <div class="grid grid-cols-1 gap-2.5">
+            ${options.map((opt, idx) => {
+              const isSelected = String(savedAns || '') === String(opt);
+              const activeClass = isSelected
+                ? 'border-indigo-500 bg-indigo-50 text-indigo-800 ring-2 ring-indigo-300'
+                : 'border-slate-200 bg-white hover:bg-indigo-50/50 hover:border-indigo-300 text-slate-700';
+              return `
+                <button type="button" data-option-idx="${idx}" data-option-val="${escapeHtml(opt)}" onclick="selectWizardAnswer(this.dataset.optionVal, true)" aria-pressed="${isSelected ? 'true' : 'false'}" class="wizard-mc-btn w-full p-3.5 rounded-2xl border-2 font-bold text-xs sm:text-sm text-left flex items-center justify-between transition cursor-pointer ${activeClass}">
+                  <span>${escapeHtml(opt)}</span>
+                  <span class="w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] ${isSelected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300'}">${isSelected ? '✓' : ''}</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        `;
+      } else if (qType === 'LINEAR_SCALE') {
+        const scaleVals = ['1', '2', '3', '4', '5'];
+        inputArea.innerHTML = `
+          <div class="space-y-2">
+            <div class="grid grid-cols-5 gap-2.5">
+              ${scaleVals.map(val => {
+                const isSelected = String(savedAns || '') === val;
+                const activeClass = isSelected
+                  ? 'border-indigo-600 bg-indigo-600 text-white ring-2 ring-indigo-300 shadow-sm'
+                  : 'border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-400 text-slate-700';
+                return `
+                  <button type="button" data-scale="${val}" onclick="selectWizardAnswer('${val}', true)" aria-pressed="${isSelected ? 'true' : 'false'}" class="wizard-scale-btn py-4 rounded-2xl border-2 font-extrabold text-base sm:text-lg flex flex-col items-center justify-center transition cursor-pointer ${activeClass}">
+                    <span>${val}</span>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+            <div class="flex justify-between text-[10px] font-bold text-slate-400 px-1">
+              <span>1 • Sangat Rendah / Tidak Setuju</span>
+              <span>5 • Sangat Tinggi / Sangat Setuju</span>
+            </div>
+          </div>
+        `;
+      } else if (qType === 'CHECKBOXES') {
+        const selectedArr = Array.isArray(savedAns)
+          ? savedAns
+          : (savedAns ? String(savedAns).split(',').map(s => s.trim()).filter(Boolean) : []);
+        inputArea.innerHTML = `
+          <div class="grid grid-cols-1 gap-2.5">
+            ${options.map((opt, idx) => {
+              const isSelected = selectedArr.includes(opt);
+              const activeClass = isSelected
+                ? 'border-indigo-500 bg-indigo-50 text-indigo-800 ring-2 ring-indigo-300'
+                : 'border-slate-200 bg-white hover:bg-indigo-50/50 hover:border-indigo-300 text-slate-700';
+              return `
+                <button type="button" data-option-idx="${idx}" data-option-val="${escapeHtml(opt)}" onclick="toggleWizardCheckbox(this.dataset.optionVal)" aria-pressed="${isSelected ? 'true' : 'false'}" class="wizard-checkbox-btn w-full p-3.5 rounded-2xl border-2 font-bold text-xs sm:text-sm text-left flex items-center justify-between transition cursor-pointer ${activeClass}">
+                  <span>${escapeHtml(opt)}</span>
+                  <span class="w-5 h-5 rounded-md border-2 flex items-center justify-center text-[10px] ${isSelected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300'}">${isSelected ? '✓' : ''}</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        `;
+      } else if (qType === 'SHORT_ANSWER') {
+        const textVal = savedAns != null ? String(savedAns) : '';
+        inputArea.innerHTML = `
+          <div>
+            <textarea id="wizard-short-answer-input" rows="3" oninput="onWizardShortAnswerInput(this.value)" placeholder="Ketik jawaban singkatmu di sini..." class="w-full p-3.5 text-xs sm:text-sm rounded-2xl border-2 border-slate-200 focus:border-indigo-500 focus:outline-none bg-white font-medium leading-relaxed">${escapeHtml(textVal)}</textarea>
+          </div>
+        `;
+      }
+    }
+
+    function renderWizardStep() {
+      if (!currentSurveyData || !currentSurveyData.questions) return;
+      const questions = currentSurveyData.questions;
+      const total = questions.length;
+      const q = questions[currentQuestionIndex];
+      if (!q) return;
+
+      const currentNum = currentQuestionIndex + 1;
+      const percent = Math.round((currentNum / total) * 100);
+
+      // Update category badge
+      const catBadge = document.getElementById('survey-wizard-category');
+      if (catBadge) catBadge.innerText = q.category || 'Care Core';
+
+      // Update progress text & bar
+      const progressText = document.getElementById('survey-wizard-progress');
+      if (progressText) {
+        progressText.innerText = `Pertanyaan ${currentNum} dari ${total} • ${percent}%`;
+      }
+      const progressBar = document.getElementById('survey-wizard-progress-bar');
+      if (progressBar) {
+        progressBar.style.width = `${percent}%`;
+        progressBar.setAttribute('aria-valuenow', String(percent));
+      }
+
+      // Update question text
+      const questionEl = document.getElementById('survey-wizard-question');
+      if (questionEl) {
+        questionEl.innerText = q.question_text || '';
+      }
+
+      // Render dynamic input area & highlight active state if previously answered
+      const savedAns = wizardAnswers[q.id] ? wizardAnswers[q.id].answer : null;
+      renderWizardInputArea(q, savedAns);
+
+      // Prev button state
+      const prevBtn = document.getElementById('btn-wizard-prev');
+      if (prevBtn) {
+        prevBtn.disabled = (currentQuestionIndex === 0);
+        if (currentQuestionIndex === 0) {
+          prevBtn.classList.add('opacity-40', 'cursor-not-allowed');
+        } else {
+          prevBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+        }
+      }
+
+      // Next and Submit buttons
+      const nextBtn = document.getElementById('btn-wizard-next');
+      const submitBtn = document.getElementById('btn-wizard-submit');
+      const isLast = (currentQuestionIndex === total - 1);
+      const isSingleChoice = isSingleChoiceQuestionType(q.question_type);
+
+      if (nextBtn) {
+        // Hide Next button on non-final single-choice questions (auto-advance on click),
+        // or on the last question where Submit is shown instead.
+        if (isLast || isSingleChoice) {
+          nextBtn.classList.add('hidden');
+        } else {
+          nextBtn.classList.remove('hidden');
+        }
+      }
+      if (submitBtn) {
+        if (isLast) submitBtn.classList.remove('hidden');
+        else submitBtn.classList.add('hidden');
+      }
+
+      initIcons();
+    }
+
+    function selectWizardAnswer(ans, autoAdvance = false) {
+      if (!currentSurveyData || !currentSurveyData.questions) return;
+      const q = currentSurveyData.questions[currentQuestionIndex];
+      if (!q) return;
+
+      clearWizardAutoAdvance();
+
+      wizardAnswers[q.id] = {
+        question_id: q.id,
+        category: q.category,
+        question_type: q.question_type || 'BINARY_YES_NO',
+        answer: ans
+      };
+      renderWizardInputArea(q, ans);
+
+      const total = currentSurveyData.questions.length;
+      if (autoAdvance && isSingleChoiceQuestionType(q.question_type) && currentQuestionIndex < total - 1) {
+        wizardAutoAdvanceTimer = setTimeout(() => {
+          wizardAutoAdvanceTimer = null;
+          nextWizardStep();
+        }, 180);
+      }
+    }
+
+    function toggleWizardCheckbox(optVal) {
+      if (!currentSurveyData || !currentSurveyData.questions) return;
+      const q = currentSurveyData.questions[currentQuestionIndex];
+      if (!q) return;
+
+      const existing = wizardAnswers[q.id] ? wizardAnswers[q.id].answer : '';
+      let selectedArr = Array.isArray(existing)
+        ? [...existing]
+        : (existing ? String(existing).split(',').map(s => s.trim()).filter(Boolean) : []);
+
+      if (selectedArr.includes(optVal)) {
+        selectedArr = selectedArr.filter(item => item !== optVal);
+      } else {
+        selectedArr.push(optVal);
+      }
+
+      if (selectedArr.length === 0) {
+        delete wizardAnswers[q.id];
+        renderWizardInputArea(q, null);
+      } else {
+        const joined = selectedArr.join(', ');
+        wizardAnswers[q.id] = {
+          question_id: q.id,
+          category: q.category,
+          question_type: q.question_type || 'CHECKBOXES',
+          answer: joined
+        };
+        renderWizardInputArea(q, joined);
+      }
+    }
+
+    function onWizardShortAnswerInput(val) {
+      if (!currentSurveyData || !currentSurveyData.questions) return;
+      const q = currentSurveyData.questions[currentQuestionIndex];
+      if (!q) return;
+
+      const trimmed = String(val || '').trim();
+      if (!trimmed) {
+        delete wizardAnswers[q.id];
+      } else {
+        wizardAnswers[q.id] = {
+          question_id: q.id,
+          category: q.category,
+          question_type: q.question_type || 'SHORT_ANSWER',
+          answer: trimmed
+        };
+      }
+    }
+
+    function prevWizardStep() {
+      clearWizardAutoAdvance();
+      if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        renderWizardStep();
+      }
+    }
+
+    function nextWizardStep() {
+      clearWizardAutoAdvance();
+      if (!currentSurveyData || !currentSurveyData.questions) return;
+      const q = currentSurveyData.questions[currentQuestionIndex];
+      if (q && (!wizardAnswers[q.id] || String(wizardAnswers[q.id].answer || '').trim() === '')) {
+        showToast('Silakan pilih YA atau TIDAK terlebih dahulu', '⚠️');
+        return;
+      }
+      if (currentQuestionIndex < currentSurveyData.questions.length - 1) {
+        currentQuestionIndex++;
+        renderWizardStep();
+      }
+    }
+
+    let isSubmittingSurveyResponse = false;
+
+    async function submitSurveyAnswers() {
+      if (isSubmittingSurveyResponse) return;
+      if (!currentSurveyData || !currentSurveyData.questions) return;
+      const q = currentSurveyData.questions[currentQuestionIndex];
+      if (q && (!wizardAnswers[q.id] || String(wizardAnswers[q.id].answer || '').trim() === '')) {
+        showToast('Silakan pilih YA atau TIDAK terlebih dahulu', '⚠️');
+        return;
+      }
+
+      const totalQuestions = currentSurveyData.questions.length;
+      const answeredCount = Object.keys(wizardAnswers).length;
+      if (answeredCount < totalQuestions) {
+        showToast(`Masih ada ${totalQuestions - answeredCount} pertanyaan yang belum dijawab`, '⚠️');
+        return;
+      }
+
+      isSubmittingSurveyResponse = true;
+      const submitBtn = document.getElementById('btn-wizard-submit');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `
+          <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+          <span>Menyimpan...</span>
+        `;
+        initIcons();
+      }
+
+      const answersArray = Object.values(wizardAnswers);
+      const payload = {
+        survey_id: currentSurveyData.id,
+        answers: answersArray
+      };
+
+      showToast('Mengirimkan kuesioner...', '⏳');
+      try {
+        const res = await callServer('submitSurveyResponse', [payload]);
+        if (res && (res.success || res.category_scores)) {
+          // Close wizard modal
+          closeSurveyWizard();
+
+          // Render category percentages and interpretations in complete modal
+          const scoresDiv = document.getElementById('survey-complete-scores');
+          if (scoresDiv && res.category_scores) {
+            scoresDiv.innerHTML = Object.entries(res.category_scores).map(([cat, score]) => {
+              const interp = getInterestInterpretation(score);
+              return `
+                <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <div>
+                    <span class="text-xs font-bold text-slate-800 block">${escapeHtml(cat)}</span>
+                    <span class="text-[10px] font-semibold text-slate-500">${interp.label} (${interp.yesCount}/5 YA)</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-extrabold text-teal-600 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full">${score}%</span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${interp.badgeClass}">${interp.label}</span>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+
+          // Refresh student survey results and update banner button to Edit Mode
+          await loadStudentSurveyResults();
+          updateSurveyBannerInfo();
+
+          // Show complete modal
+          const completeModal = document.getElementById('modal-survey-complete');
+          if (completeModal) completeModal.classList.remove('hidden');
+          initIcons();
+        } else {
+          showToast('Gagal mengirimkan kuesioner', '❌');
+        }
+      } catch (err) {
+        console.error('Error submitting survey:', err);
+        showToast(err.message || 'Gagal mengirimkan kuesioner', '❌');
+      } finally {
+        isSubmittingSurveyResponse = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          const submitLabel = typeof t === 'function' ? t('survey.submit') : 'Kirim Kuesioner';
+          submitBtn.innerHTML = `
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span data-i18n="survey.submit">${escapeHtml(submitLabel)}</span>
+          `;
+          initIcons();
+        }
+      }
+    }
+
+    function closeSurveyCompleteModal() {
+      const completeModal = document.getElementById('modal-survey-complete');
+      if (completeModal) completeModal.classList.add('hidden');
+    }
+
+    // =========================================================================
+    // STUDENT SURVEY REPORTS & TRAIT SPECTRUM (TAB SURVEI)
+    // =========================================================================
+    async function loadStudentSurveyResults() {
+      const emptyState = document.getElementById('student-survey-empty-state');
+      const reportContent = document.getElementById('student-survey-report-content');
+      const historySelect = document.getElementById('student-survey-history-select');
+
+      try {
+        const res = await callServer('getStudentSurveyResults', []);
+        cachedStudentSurveyResults = res;
+
+        const history = (res && Array.isArray(res.history)) ? res.history : [];
+        if (history.length === 0) {
+          if (emptyState) emptyState.classList.remove('hidden');
+          if (reportContent) reportContent.classList.add('hidden');
+          if (historySelect) historySelect.innerHTML = '<option value="">Belum ada riwayat survei</option>';
+          return;
+        }
+
+        if (emptyState) emptyState.classList.add('hidden');
+        if (reportContent) reportContent.classList.remove('hidden');
+
+        if (historySelect) {
+          historySelect.innerHTML = history.map((s, idx) => {
+            const d = s.timestamp ? new Date(s.timestamp) : null;
+            const dateStr = (d && !isNaN(d.getTime()))
+              ? d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+              : `Pengisian #${idx + 1}`;
+            const title = s.survey_title || 'Survei Psikologis';
+            return `<option value="${escapeHtml(s.id)}">${escapeHtml(dateStr)} - ${escapeHtml(title)}</option>`;
+          }).join('');
+        }
+
+        const activeSurvey = res.latestSurvey || history[0];
+        renderStudentSurveyReport(activeSurvey);
+      } catch (err) {
+        console.error('loadStudentSurveyResults error:', err);
+        showToast('Gagal memuat hasil survei: ' + err.message, '❌');
+      }
+    }
+
+    function onStudentSurveyHistoryChange(responseId) {
+      if (!cachedStudentSurveyResults || !cachedStudentSurveyResults.history) return;
+      const found = cachedStudentSurveyResults.history.find(s => String(s.id) === String(responseId));
+      if (found) {
+        renderStudentSurveyReport(found);
+      }
+    }
+
+    function renderStudentSurveyReport(surveyResp) {
+      if (!surveyResp) return;
+
+      const titleEl = document.getElementById('student-survey-report-title');
+      const descEl = document.getElementById('student-survey-report-desc');
+      if (titleEl && surveyResp.survey_title) titleEl.innerText = surveyResp.survey_title;
+      if (descEl && surveyResp.survey_description) descEl.innerText = surveyResp.survey_description;
+
+      // Extract scores
+      let scores = surveyResp.category_scores || {};
+      if (typeof scores === 'string') {
+        try { scores = JSON.parse(scores); } catch (e) {}
+      }
+
+      // Top traits banner
+      const topTraitsDiv = document.getElementById('student-survey-top-traits');
+      if (topTraitsDiv) {
+        const sortedCategories = Object.entries(scores).sort((a, b) => Number(b[1]) - Number(a[1]));
+        if (sortedCategories.length > 0) {
+          const topScore = sortedCategories[0][1];
+          const dominantList = sortedCategories.filter(([cat, sc]) => Number(sc) === Number(topScore) || Number(sc) >= 70);
+
+          topTraitsDiv.innerHTML = (dominantList.length > 0 ? dominantList : sortedCategories.slice(0, 2)).map(([cat, sc]) => {
+            return `
+              <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-2xl text-xs font-extrabold bg-indigo-600 text-white shadow-sm">
+                <span>🌟</span>
+                <span>${escapeHtml(cat)} (${sc}%)</span>
+              </span>
+            `;
+          }).join('');
+        } else {
+          topTraitsDiv.innerHTML = `<span class="text-xs text-slate-500 italic">Belum ada skor tercatat</span>`;
+        }
+      }
+
+      // Trait spectrum bars (0-100%)
+      const spectrumDiv = document.getElementById('student-trait-spectrum-section');
+      if (spectrumDiv) {
+        const entries = Object.entries(scores);
+        if (entries.length === 0) {
+          spectrumDiv.innerHTML = `<p class="text-xs text-slate-400 italic">Data skor tidak tersedia.</p>`;
+        } else {
+          spectrumDiv.innerHTML = entries.map(([category, score]) => {
+            const sc = Math.min(100, Math.max(0, Number(score) || 0));
+            const interp = getInterestInterpretation(sc);
+            const barColor = sc >= 80 ? 'bg-gradient-to-r from-emerald-500 to-teal-500' :
+                             sc >= 60 ? 'bg-gradient-to-r from-teal-500 to-indigo-500' :
+                             sc >= 40 ? 'bg-gradient-to-r from-indigo-500 to-purple-500' :
+                             'bg-gradient-to-r from-slate-400 to-slate-500';
+
+            return `
+              <div class="space-y-1.5 p-3.5 bg-slate-50/80 border border-slate-100 rounded-2xl hover:border-indigo-200 transition">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-slate-800">${escapeHtml(category)}</span>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border ${interp.badgeClass}">${interp.label}</span>
+                  </div>
+                  <span class="text-xs font-extrabold text-indigo-700">${sc}%</span>
+                </div>
+                <!-- Progress bar track -->
+                <div class="w-full h-3 bg-slate-200/80 rounded-full overflow-hidden p-0.5">
+                  <div class="h-full rounded-full ${barColor} transition-all duration-500" style="width: ${sc}%"></div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      // Question breakdown
+      let answers = surveyResp.answers || [];
+      if (typeof answers === 'string') {
+        try { answers = JSON.parse(answers); } catch (e) {}
+      }
+
+      const qCountBadge = document.getElementById('student-survey-questions-count');
+      const qListDiv = document.getElementById('student-survey-questions-list');
+      if (qCountBadge) qCountBadge.innerText = `${answers.length} Butir`;
+
+      if (qListDiv) {
+        if (!Array.isArray(answers) || answers.length === 0) {
+          qListDiv.innerHTML = `<p class="text-xs text-slate-400 italic">Rincian butir tidak tersedia.</p>`;
+        } else {
+          qListDiv.innerHTML = answers.map((a, idx) => {
+            const rawAns = Array.isArray(a.answer) ? a.answer.join(', ') : String(a.answer != null ? a.answer : '');
+            const upperAns = rawAns.trim().toUpperCase();
+            const qType = String(a.question_type || 'BINARY_YES_NO').toUpperCase();
+            let badgeClass = 'bg-indigo-50 text-indigo-800 border-indigo-200';
+            let badgeText = escapeHtml(rawAns || '-');
+            if (upperAns === 'YA' || upperAns === 'YES' || a.answer === true) {
+              badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+              badgeText = '✓ YA';
+            } else if (upperAns === 'TIDAK' || upperAns === 'NO' || a.answer === false) {
+              badgeClass = 'bg-slate-100 text-slate-600 border-slate-200';
+              badgeText = '✗ TIDAK';
+            } else if (qType === 'LINEAR_SCALE' || (/^[1-5]$/.test(rawAns.trim()) && qType !== 'SHORT_ANSWER')) {
+              badgeClass = 'bg-teal-100 text-teal-800 border-teal-300';
+              badgeText = `Skor: ${escapeHtml(rawAns.trim())}/5`;
+            }
+            const qText = a.question_text || a.questionText || `Pertanyaan #${idx + 1}`;
+            const cat = a.category || 'Umum';
+
+            return `
+              <div class="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-start justify-between gap-3 text-xs hover:border-slate-300 transition">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">${escapeHtml(cat)}</span>
+                    <span class="text-[10px] text-slate-400 font-medium">#${idx + 1}</span>
+                  </div>
+                  <p class="text-slate-800 font-medium leading-relaxed">${escapeHtml(qText)}</p>
+                </div>
+                <span class="text-[10px] font-extrabold px-2.5 py-1 rounded-xl border ${badgeClass} shrink-0 select-none">
+                  ${badgeText}
+                </span>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      initIcons();
+    }
+
+
+
+    let isSubmittingJournal = false;
+    async function submitJournal() {
+      if (isSubmittingJournal) return;
+      const title = document.getElementById('journal-title').value.trim();
+      const content = document.getElementById('journal-content').value.trim();
+      if (!title || !content) return;
+
+      const btnSave = document.getElementById('btn-save-journal');
+      const originalBtnHtml = btnSave ? btnSave.innerHTML : '';
+
+      isSubmittingJournal = true;
+      if (btnSave) {
+        btnSave.disabled = true;
+        btnSave.classList.add('opacity-70', 'cursor-not-allowed');
+        btnSave.innerHTML = `<span class="inline-block animate-spin mr-2">⏳</span> Menyimpan...`;
+      }
+      try {
+        await callServer('saveJournal', [{ title, content }]);
+        localStorage.removeItem(DRAFT_KEYS.JOURNAL_TITLE);
+        localStorage.removeItem(DRAFT_KEYS.JOURNAL_CONTENT);
+        document.getElementById('draft-journal-indicator').classList.add('hidden');
+        document.getElementById('journal-form').reset();
+        showToast('Catatan disimpan di jurnal rahasiamu 📖', '✅');
+        loadJournals();
+      } catch (err) {
+        showToast('Gagal menyimpan jurnal: ' + err.message, '❌');
+      } finally {
+        isSubmittingJournal = false;
+        if (btnSave) {
+          btnSave.disabled = false;
+          btnSave.classList.remove('opacity-70', 'cursor-not-allowed');
+          btnSave.innerHTML = originalBtnHtml;
+        }
+      }
+    }
+
+
+
+    function openJournalDetail(journalId) {
+      const journal = cachedJournals.find(j => String(j.id) === String(journalId));
+      if (!journal) return;
+
+      let dateStr = 'Hari ini';
+      try {
+        const d = new Date(journal.timestamp);
+        if (!isNaN(d.getTime())) {
+          dateStr = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+      } catch (e) {}
+
+      const jTitle = journal.title || 'Catatan Refleksi';
+      const elJournalTitle = document.getElementById('journal-detail-title');
+      if (elJournalTitle) elJournalTitle.innerText = jTitle;
+      const elModalTitle = document.getElementById('modal-journal-title');
+      if (elModalTitle && elModalTitle !== elJournalTitle && !elModalTitle.contains(elJournalTitle)) {
+        elModalTitle.innerText = jTitle;
+      }
+      document.getElementById('journal-detail-date').innerText = `📅 ${dateStr}`;
+      document.getElementById('journal-detail-content').innerText = journal.content || '';
+      
+      const modal = document.getElementById('modal-journal-detail');
+      if (modal) {
+        modal.classList.remove('hidden');
+        initIcons();
+      }
+    }
+
+    function closeJournalDetailModal() {
+      const modal = document.getElementById('modal-journal-detail');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function loadJournals() {
+      const list = document.getElementById('journal-list');
+      const countBadge = document.getElementById('journal-count-badge');
+      try {
+        const res = await callServer('getJournals', []);
+        const journals = Array.isArray(res) ? res : (res && res.data ? res.data : []);
+        
+        if (countBadge) {
+          countBadge.innerText = `${journals.length} Catatan`;
+        }
+
+        if (journals.length === 0) {
+          cachedJournals = [];
+          list.innerHTML = `
+            <div class="p-6 text-center text-slate-400 bg-slate-50/80 rounded-2xl border border-dashed border-slate-200 space-y-2">
+              <span class="text-2xl block">📖</span>
+              <p class="text-xs font-semibold text-slate-600">Belum ada catatan jurnal tersimpan.</p>
+              <p class="text-[11px] text-slate-400">Tuliskan pikiran atau perasaanmu hari ini di formulir sebelah. Catatanmu 100% rahasia.</p>
+            </div>
+          `;
+          return;
+        }
+
+        // Urutkan terbaru ke terlama secara stabil tanpa memutasi array asli
+        const sorted = [...journals].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        cachedJournals = sorted;
+
+        list.innerHTML = sorted.map(j => {
+          let dateStr = 'Hari ini';
+          try {
+            const d = new Date(j.timestamp);
+            if (!isNaN(d.getTime())) {
+              dateStr = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+            }
+          } catch (e) {}
+
+          const safeTitle = escapeHtml(j.title || 'Catatan Refleksi');
+          const safeContent = escapeHtml(j.content || '');
+
+          return `
+            <div onclick="openJournalDetail('${escapeHtml(j.id || '')}')" class="h-32 sm:h-36 flex flex-col justify-between p-4 bg-teal-50/70 hover:bg-teal-50 rounded-2xl border border-teal-100/90 hover:border-teal-300 transition shadow-xs cursor-pointer group">
+              <div class="space-y-1 overflow-hidden">
+                <div class="flex justify-between items-center font-bold text-teal-950 gap-2">
+                  <span class="text-xs sm:text-sm font-extrabold text-teal-900 truncate">${safeTitle}</span>
+                  <span class="text-[10px] bg-white/80 border border-teal-200/80 text-teal-700 px-2 py-0.5 rounded-lg font-semibold shrink-0">📅 ${dateStr}</span>
+                </div>
+                <p class="text-teal-900/85 leading-relaxed text-xs line-clamp-2 sm:line-clamp-3">${safeContent}</p>
+              </div>
+              <div class="pt-1.5 flex items-center justify-between text-[11px] text-teal-600 font-semibold group-hover:text-teal-700 border-t border-teal-100/60 shrink-0">
+                <span class="text-[10px] text-teal-600/80">Klik untuk baca selengkapnya</span>
+                <span class="group-hover:translate-x-0.5 transition-transform text-xs font-bold">↗</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Gagal memuat jurnal:', err);
+        list.innerHTML = `<div class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">Gagal memuat riwayat: ${err.message}</div>`;
+      }
+    }
+
+    // =========================================================================
+    // LAPORAN PERUNDUNGAN (BULLYING REPORT)
+    // =========================================================================
+    let isSubmittingReport = false;
+    async function submitBullyingReport() {
+      if (isSubmittingReport) return;
+      const roleType = document.getElementById('report-role').value;
+      const detail = document.getElementById('report-detail').value.trim();
+      const isAnonymous = document.getElementById('report-anon').checked;
+
+      if (!detail) return;
+
+      const btnSubmit = document.getElementById('btn-submit-report');
+      const originalBtnHtml = btnSubmit ? btnSubmit.innerHTML : '';
+
+      isSubmittingReport = true;
+      if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.classList.add('opacity-70', 'cursor-not-allowed');
+        btnSubmit.innerHTML = `<span class="inline-block animate-spin mr-2">⏳</span> Mengirim...`;
+      }
+
+      try {
+        await callServer('submitReport', [{ roleType, detail, isAnonymous }]);
+        localStorage.removeItem(DRAFT_KEYS.REPORT_DETAIL);
+        document.getElementById('draft-report-indicator').classList.add('hidden');
+        document.getElementById('report-form').reset();
+        
+        const successMsg = isAnonymous 
+          ? 'Laporan anonim terkirim aman! Tim BK akan segera meninjau.' 
+          : 'Laporan Anda terkirim dengan aman kepada tim Guru BK.';
+        showToast(successMsg, '🛡️');
+      } catch (err) {
+        showToast('Gagal mengirim aduan: ' + err.message, '❌');
+      } finally {
+        isSubmittingReport = false;
+        if (btnSubmit) {
+          btnSubmit.disabled = false;
+          btnSubmit.classList.remove('opacity-70', 'cursor-not-allowed');
+          btnSubmit.innerHTML = originalBtnHtml;
+        }
+      }
+    }
+
+    // =========================================================================
+    // 4-7-8 BREATHING EXERCISE CONTROLLER
+    // =========================================================================
+    function toggleBreathingGuide() {
+      const orb = document.getElementById('breathing-orb');
+      const action = document.getElementById('breathing-action');
+      const count = document.getElementById('breathing-count');
+      const instruction = document.getElementById('breathing-instruction');
+      const btn = document.getElementById('btn-start-breathing');
+
+      if (breathingInterval) {
+        clearInterval(breathingInterval);
+        breathingInterval = null;
+        orb.classList.remove('active');
+        btn.innerText = 'Mulai Relaksasi';
+        action.innerText = 'Mulai';
+        count.innerText = 'Rileks';
+        instruction.innerText = 'Klik tombol untuk memulai sesi relaksasi 1 menit.';
+        return;
+      }
+
+      orb.classList.add('active');
+      btn.innerText = 'Hentikan Sesi';
+      
+      let step = 0;
+      let sec = 4;
+      action.innerText = 'Tarik Napas';
+      count.innerText = sec + 'd';
+      instruction.innerText = 'Tarik napas perlahan melalui hidung...';
+
+      breathingInterval = setInterval(() => {
+        sec--;
+        if (sec > 0) {
+          count.innerText = sec + 'd';
+        } else {
+          step = (step + 1) % 3;
+          if (step === 0) {
+            sec = 4;
+            action.innerText = 'Tarik Napas';
+            instruction.innerText = 'Tarik napas perlahan melalui hidung...';
+          } else if (step === 1) {
+            sec = 7;
+            action.innerText = 'Tahan';
+            instruction.innerText = 'Tahan napas dengan tenang dan rileks...';
+          } else if (step === 2) {
+            sec = 8;
+            action.innerText = 'Hembuskan';
+            instruction.innerText = 'Hembuskan napas perlahan melalui mulut...';
+          }
+          count.innerText = sec + 'd';
+        }
+      }, 1000);
+    }
+
+    // =========================================================================
+    // APPOINTMENT AVAILABILITY & GOOGLE CALENDAR CONTROLLERS
+    // =========================================================================
+    let slotCheckSeq = 0;
+    async function checkSlotAvailability() {
+      const counselorEmail = document.getElementById('apt-counselor').value;
+      const targetDate = document.getElementById('apt-date').value;
+      const statusInfo = document.getElementById('slot-status-info');
+      const slotSelect = document.getElementById('apt-slot');
+
+      if (!targetDate) {
+        statusInfo.innerText = 'Pilih tanggal dahulu';
+        return;
+      }
+
+      const seq = ++slotCheckSeq;
+      statusInfo.innerText = 'Mengecek ketersediaan...';
+      try {
+        const res = await callServer('getAvailableSlots', [{ counselorEmail, targetDate }]);
+        if (seq !== slotCheckSeq) return; // Drop stale response
+        const slots = Array.isArray(res) ? res : (res && res.data ? res.data : []);
+        
+        slotSelect.innerHTML = '';
+        slots.forEach(slot => {
+          const opt = document.createElement('option');
+          opt.value = slot.label;
+          opt.textContent = slot.available ? slot.label : `${slot.label} (Penuh/Terjadwal)`;
+          opt.disabled = !slot.available;
+          slotSelect.appendChild(opt);
+        });
+
+        const availableCount = slots.filter(s => s.available).length;
+        statusInfo.innerText = `${availableCount} dari ${slots.length} slot tersedia`;
+      } catch (err) {
+        if (seq !== slotCheckSeq) return;
+        statusInfo.innerText = 'Gagal cek slot: ' + err.message;
+      }
+    }
+
+    async function loadStudentAppointments() {
+      const list = document.getElementById('student-appointments-list');
+      try {
+        const res = await callServer('getStudentAppointments', []);
+        const apts = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
+        if (apts.length === 0) {
+          list.innerHTML = '<p class="text-slate-400 text-xs italic">Belum ada janji temu yang diajukan.</p>';
+          return;
+        }
+
+        list.innerHTML = apts.map(a => `
+          <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-1.5 hover:border-teal-300 transition">
+            <div class="flex justify-between items-center font-bold">
+              <span class="text-slate-800">${escapeHtml(a.target_date || a.targetDate)} - ${escapeHtml(a.time_slot || a.timeSlot)}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-md ${
+                a.status === 'DISETUJUI' ? 'bg-emerald-100 text-emerald-800 font-bold' :
+                a.status === 'DITOLAK' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+              }">
+                ${a.status === 'DISETUJUI' ? '✓ DISETUJUI (Google Calendar)' : escapeHtml(a.status)}
+              </span>
+            </div>
+            <p class="text-slate-600">Topik: <span class="font-medium text-slate-800">${escapeHtml(a.topic)}</span></p>
+            <p class="text-[10px] text-slate-400">Konselor: ${escapeHtml(a.counselor_email || a.counselorEmail)}</p>
+          </div>
+        `).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    let isSubmittingAppointment = false;
+
+    async function submitAppointment() {
+      if (isSubmittingAppointment) return;
+
+      const counselorEmail = document.getElementById('apt-counselor').value;
+      const targetDate = document.getElementById('apt-date').value;
+      const timeSlot = document.getElementById('apt-slot').value;
+      const topic = document.getElementById('apt-topic').value.trim();
+
+      if (!targetDate || !topic) {
+        showToast('Lengkapi tanggal dan topik konseling!', '⚠️');
+        return;
+      }
+
+      const btn = document.getElementById('btn-book-apt');
+      isSubmittingAppointment = true;
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'pointer-events-none');
+        btn.innerHTML = '<span>Mengajukan Janji Temu...</span>';
+      }
+
+      try {
+        const res = await callServer('requestAppointment', [{
+          counselorEmail,
+          targetDate,
+          timeSlot,
+          topic
+        }]);
+
+        if (res && res.error) {
+          showToast(res.error, '⚠️');
+        } else {
+          showToast('Pengajuan janji temu berhasil! Menunggu persetujuan Guru BK.', '📅');
+          document.getElementById('apt-topic').value = '';
+          await loadStudentAppointments();
+          await checkSlotAvailability();
+        }
+      } catch (err) {
+        showToast('Gagal mengajukan janji temu: ' + err.message, '❌');
+      } finally {
+        isSubmittingAppointment = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove('opacity-50', 'pointer-events-none');
+          btn.innerHTML = '<i data-lucide="calendar-plus" class="w-4 h-4"></i><span>Ajukan Janji Temu</span>';
+          initIcons();
+        }
+      }
+    }
+
+    // =========================================================================
+    // CHAT IN-APP CONTROLLERS
+    // =========================================================================
+    let chatPollInterval = null;
+
+    function openChatModal(targetEmail, targetName) {
+      chatTargetEmail = (targetEmail || '').toLowerCase().trim();
+      document.getElementById('chat-target-name').innerText = targetName || targetEmail || 'Konseling';
+      document.getElementById('chat-modal').classList.remove('hidden');
+      loadChatMessages();
+      // Tandai pesan dari lawan bicara sebagai telah dibaca
+      if (chatTargetEmail) {
+        callServer('markMessagesAsRead', [chatTargetEmail]).catch(() => {});
+      }
+      if (chatPollInterval) clearInterval(chatPollInterval);
+      chatPollInterval = setInterval(loadChatMessages, 3500);
+    }
+
+    function closeChatModal() {
+      document.getElementById('chat-modal').classList.add('hidden');
+      if (chatPollInterval) {
+        clearInterval(chatPollInterval);
+        chatPollInterval = null;
+      }
+    }
+
+    async function loadChatMessages() {
+      const container = document.getElementById('chat-messages-container');
+      if (!container || !chatTargetEmail || !currentUser) return;
+      try {
+        const res = await callServer('getMessages', []);
+        const rawMessages = Array.isArray(res) ? res : (res && res.data ? res.data : []);
+        const myEmail = (currentUser.email || '').toLowerCase().trim();
+        const target = chatTargetEmail.toLowerCase().trim();
+
+        const messages = rawMessages.filter(m => {
+          const s = (m.sender_email || '').toLowerCase().trim();
+          const r = (m.recipient_email || '').toLowerCase().trim();
+          return (s === target && r === myEmail) || (s === myEmail && r === target);
+        });
+
+        // Jika ada pesan masuk yang belum dibaca, sinkronkan markMessagesAsRead
+        const hasUnreadIncoming = messages.some(m => {
+          const s = (m.sender_email || '').toLowerCase().trim();
+          const r = (m.recipient_email || '').toLowerCase().trim();
+          const isRead = m.is_read === true || String(m.is_read).toLowerCase() === 'true';
+          return s === target && r === myEmail && !isRead;
+        });
+        if (hasUnreadIncoming) {
+          callServer('markMessagesAsRead', [target]).catch(() => {});
+        }
+
+        // Anti-Deduplication: Hilangkan pesan identik duplikat (<= 6 detik)
+        const deduplicated = [];
+        messages.forEach(m => {
+          if (deduplicated.length > 0) {
+            const last = deduplicated[deduplicated.length - 1];
+            const isSameSender = (m.sender_email || '').toLowerCase().trim() === (last.sender_email || '').toLowerCase().trim();
+            const isSameRecipient = (m.recipient_email || '').toLowerCase().trim() === (last.recipient_email || '').toLowerCase().trim();
+            const isSameText = (m.text || '').trim() === (last.text || '').trim();
+            const timeDiff = Math.abs(new Date(m.timestamp) - new Date(last.timestamp));
+            if (isSameSender && isSameRecipient && isSameText && timeDiff < 6000) {
+              return; // Lewati duplikat
+            }
+          }
+          deduplicated.push(m);
+        });
+
+        if (deduplicated.length === 0) {
+          container.innerHTML = '<div class="text-center text-[10px] text-slate-400 py-6">Belum ada riwayat pesan. Ketik pesan di bawah untuk memulai percakapan tertutup.</div>';
+          return;
+        }
+
+        container.innerHTML = deduplicated.map(m => {
+          const isMe = (m.sender_email || '').toLowerCase().trim() === myEmail;
+          const timeStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '';
+          const isRead = m.is_read === true || String(m.is_read).toLowerCase() === 'true';
+          const checkSymbol = isRead ? '✓✓' : '✓';
+          const checkClass = isRead ? 'text-emerald-400 font-bold' : 'text-slate-300';
+          const checkTitle = isRead ? 'Dibaca' : 'Terkirim';
+
+          return `
+            <div class="chat-msg-row flex flex-col ${isMe ? 'items-end' : 'items-start'}">
+              <div class="max-w-[80%] p-3 rounded-2xl ${isMe ? 'bg-teal-600 text-white rounded-br-none shadow-sm' : 'bg-slate-100 text-slate-800 rounded-bl-none'} text-xs leading-relaxed">
+                ${escapeHtml(m.text)}
+              </div>
+              <span class="text-[9px] text-slate-400 mt-1 px-1 flex items-center gap-1">
+                <span>${timeStr}</span>
+                ${isMe ? `<span class="check-symbol text-[10px] ${checkClass} ml-0.5 select-none" title="${checkTitle}">${checkSymbol}</span>` : ''}
+              </span>
+            </div>
+          `;
+        }).join('');
+        container.scrollTop = container.scrollHeight;
+      } catch (err) {
+        console.error('loadChatMessages error:', err);
+      }
+    }
+
+    let isSendingChat = false;
+
+    async function sendChatMessage() {
+      if (isSendingChat) return;
+
+      const input = document.getElementById('chat-input-text');
+      const btnSend = document.getElementById('btn-send-chat');
+      const text = input.value.trim();
+      if (!text || !chatTargetEmail) return;
+
+      // Kunci tombol kirim dan status pengiriman untuk mencegah double submit
+      isSendingChat = true;
+      if (btnSend) {
+        btnSend.disabled = true;
+        btnSend.classList.add('opacity-50', 'pointer-events-none');
+      }
+
+      // Bersihkan input secara instan (Optimistic UI) agar tidak dapat terkirim dua kali
+      input.value = '';
+
+      // Tampilkan gelembung pesan optimistik di layar langsung
+      const container = document.getElementById('chat-messages-container');
+      const tempId = 'temp-' + Date.now();
+      const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const optimisticBubble = `
+        <div id="${tempId}" class="chat-msg-row flex flex-col items-end">
+          <div class="max-w-[80%] p-3 rounded-2xl bg-teal-600 text-white rounded-br-none shadow-sm text-xs leading-relaxed">
+            ${escapeHtml(text)}
+          </div>
+          <span class="text-[9px] text-slate-400 mt-1 px-1 flex items-center gap-1">
+            <span>${timeStr}</span>
+            <span class="check-symbol text-[8px] text-teal-600 font-semibold">• Mengirim...</span>
+          </span>
+        </div>
+      `;
+      if (container) {
+        if (container.innerText.includes('Belum ada riwayat pesan')) {
+          container.innerHTML = '';
+        }
+        container.insertAdjacentHTML('beforeend', optimisticBubble);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      try {
+        await callServer('sendMessage', [{
+          recipientEmail: chatTargetEmail,
+          text: text
+        }]);
+        await loadChatMessages();
+      } catch (err) {
+        // Kembalikan isi teks jika terjadi kegagalan jaringan
+        input.value = text;
+        const tempBubble = document.getElementById(tempId);
+        if (tempBubble) tempBubble.remove();
+        showToast('Gagal kirim pesan: ' + err.message, '❌');
+      } finally {
+        isSendingChat = false;
+        if (btnSend) {
+          btnSend.disabled = false;
+          btnSend.classList.remove('opacity-50', 'pointer-events-none');
+        }
+        input.focus();
+      }
+    }
+
+
+    // =========================================================================
+    // KATA MOTIVASI HARIAN GURU BK (DAILY MOTIVATION BANNER & MODAL)
+    // =========================================================================
+    async function loadActiveQuote() {
+      const banner = document.getElementById('daily-motivation-banner');
+      const counselorPreview = document.getElementById('counselor-quote-preview');
+      try {
+        const res = await callServer('getActiveQuote', []);
+        const quoteData = (res && res.data) ? res.data : (res && res.quote ? res : null);
+        if (quoteData && quoteData.quote) {
+          const cleanQuote = quoteData.quote.replace(/^["“]|["”]$/g, '').trim();
+
+          if (banner) {
+            const textEl = banner.querySelector('.quote-text');
+            const authorEl = banner.querySelector('.quote-author') || document.getElementById('quote-author');
+            const noteEl = banner.querySelector('.quote-note') || document.getElementById('quote-note');
+            
+            if (textEl) {
+              textEl.textContent = `"${cleanQuote}"`;
+            }
+            if (authorEl) {
+              authorEl.textContent = quoteData.counselor_name || quoteData.counselor_email || 'Guru BK';
+            }
+            if (noteEl) {
+              if (quoteData.note && quoteData.note.trim()) {
+                noteEl.textContent = quoteData.note.trim();
+                noteEl.style.display = 'inline';
+              } else {
+                noteEl.textContent = '';
+                noteEl.style.display = 'none';
+              }
+            }
+            banner.classList.remove('hidden');
+          }
+
+          const counselorQuoteText = document.getElementById('counselor-quote-text');
+          if (counselorQuoteText) {
+            counselorQuoteText.textContent = `"${cleanQuote}"`;
+          }
+        }
+      } catch (err) {
+        console.warn('Gagal memuat kata motivasi:', err);
+      }
+    }
+
+
+    // =========================================================================
+    // RUANG EDUKASI PSIKOLOGIS, READER MODAL & CMS GURU BK
+    // =========================================================================
+    let cachedEducationalArticles = [];
+
+    function formatInlineMarkdown(safeText) {
+      return safeText
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em class="italic text-slate-800">$1</em>');
+    }
+
+    function renderMarkdownToHtml(md) {
+      if (!md) return '';
+      const lines = md.split('\n');
+      let html = '';
+      let inList = false;
+
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('### ')) {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<h4 class="text-sm font-bold text-slate-900 mt-3 mb-1.5">${formatInlineMarkdown(escapeHtml(trimmed.slice(4)))}</h4>`;
+        } else if (trimmed.startsWith('## ')) {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<h3 class="text-base font-extrabold text-teal-950 mt-4 mb-2 pb-1 border-b border-teal-100">${formatInlineMarkdown(escapeHtml(trimmed.slice(3)))}</h3>`;
+        } else if (trimmed.startsWith('# ')) {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<h2 class="text-lg font-black text-slate-900 mt-4 mb-2">${formatInlineMarkdown(escapeHtml(trimmed.slice(2)))}</h2>`;
+        } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          if (!inList) { html += '<ul class="list-disc pl-5 space-y-1.5 my-2.5 text-slate-700">'; inList = true; }
+          html += `<li>${formatInlineMarkdown(escapeHtml(trimmed.slice(2)))}</li>`;
+        } else if (trimmed.length === 0) {
+          if (inList) { html += '</ul>'; inList = false; }
+        } else {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<p class="leading-relaxed text-slate-700 mb-2.5">${formatInlineMarkdown(escapeHtml(trimmed))}</p>`;
+        }
+      });
+      if (inList) html += '</ul>';
+      return html;
+    }
+
+    async function loadEducationalArticles() {
+      try {
+        const res = await callServer('getEducationalArticles', []);
+        cachedEducationalArticles = Array.isArray(res) ? res : (res && res.data ? res.data : []);
+        renderStudentArticleCards(cachedEducationalArticles);
+        if (currentRole === 'COUNSELOR' || (currentUser && (currentUser.role === 'COUNSELOR' || currentUser.role === 'ADMIN'))) {
+          renderCounselorArticleList(cachedEducationalArticles);
+        }
+      } catch (err) {
+        console.warn('Gagal memuat artikel edukasi:', err.message);
+      }
+    }
+
+    function renderStudentArticleCards(articles) {
+      const container = document.getElementById('resource-cards-list');
+      if (!container) return;
+
+      const published = articles.filter(a => (a.status || 'PUBLISHED').toUpperCase() === 'PUBLISHED');
+      if (published.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+            <span class="text-2xl block mb-1">📚</span>
+            <p class="text-xs font-semibold">Belum ada artikel edukasi yang dipublikasikan.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = published.map(a => {
+        const coverHtml = a.cover_image_url 
+          ? `<img src="${escapeHtml(a.cover_image_url)}" alt="${escapeHtml(a.title)}" class="w-full h-32 object-cover rounded-xl mb-3 shadow-xs" onerror="this.style.display='none'">`
+          : '';
+        const safeTitle = escapeHtml(a.title);
+        const safeCategory = escapeHtml(a.category || 'Edukasi');
+        const safeSummary = escapeHtml(a.summary || '');
+        const safeAuthor = escapeHtml(a.author_name || 'Guru BK');
+
+        const safeId = escapeHtml(a.id);
+
+        return `
+          <div class="article-card cursor-pointer group bg-white hover:bg-teal-50/30 rounded-2xl border border-slate-200 hover:border-teal-400 p-4 transition shadow-xs hover:shadow-md flex flex-col justify-between" onclick="openArticleReader('${safeId}')">
+            <div>
+              ${coverHtml}
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-teal-800 bg-teal-100 px-2.5 py-0.5 rounded-full">${safeCategory}</span>
+              </div>
+              <h3 class="text-xs sm:text-sm font-extrabold text-slate-900 group-hover:text-teal-700 transition leading-snug">${safeTitle}</h3>
+              <p class="text-[11px] text-slate-600 mt-1 leading-relaxed line-clamp-2">${safeSummary}</p>
+            </div>
+            <div class="flex items-center justify-between pt-3 mt-3 border-t border-slate-100 text-[10px] text-slate-500">
+              <span>Oleh ${safeAuthor}</span>
+              <span class="text-teal-600 font-bold group-hover:translate-x-0.5 transition flex items-center gap-0.5">
+                <span>Baca</span>
+                <i data-lucide="arrow-right" class="w-3 h-3 inline"></i>
+              </span>
+            </div>
+          </div>
+        `;
+      }).join('');
+      initIcons();
+    }
+
+
+
+    function openArticleReader(articleId) {
+      const article = cachedEducationalArticles.find(a => a.id === articleId);
+      if (!article) return;
+
+      const modal = document.getElementById('article-reader-modal');
+      modal.querySelector('.reader-category').innerText = article.category || 'Edukasi';
+      modal.querySelector('.reader-title').innerText = article.title;
+      modal.querySelector('.reader-author').innerText = 'Oleh ' + (article.author_name || 'Guru BK');
+      
+      let dateStr = 'Hari ini';
+      try {
+        const d = new Date(article.timestamp);
+        if (!isNaN(d.getTime())) {
+          dateStr = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+        }
+      } catch(e) {}
+      modal.querySelector('.reader-date').innerText = dateStr;
+
+      const coverContainer = document.getElementById('reader-cover-container');
+      const coverImg = document.getElementById('reader-cover-img');
+      if (article.cover_image_url) {
+        coverImg.src = article.cover_image_url;
+        coverContainer.classList.remove('hidden');
+      } else {
+        coverContainer.classList.add('hidden');
+      }
+
+      modal.querySelector('.reader-content').innerHTML = renderMarkdownToHtml(article.content_markdown);
+
+      modal.classList.remove('hidden');
+      initIcons();
+    }
+
+    function closeArticleReader() {
+      document.getElementById('article-reader-modal').classList.add('hidden');
+    }
+
+  </script>

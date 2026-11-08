@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPEKA Student Well Being Hub</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <?!= include('Styles'); ?>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col text-slate-800 antialiased selection:bg-teal-100 selection:text-teal-900">
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast" class="toast fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl bg-slate-900/95 backdrop-blur text-white text-xs font-semibold shadow-2xl flex items-center gap-2.5 pointer-events-none border border-slate-700" role="status" aria-live="polite">
+    <span id="toast-icon" class="text-base">✨</span>
+    <span id="toast-msg">Pemberitahuan</span>
+  </div>
+
+  <!-- MAIN APP WRAPPER (Full Responsive Viewport Container) -->
+  <div class="min-h-screen flex flex-col w-full bg-slate-50">
+    <?!= include('Navbar'); ?>
+
+    <!-- MAIN SCROLLABLE CONTENT (Adaptive Width max-w-7xl) -->
+    <main class="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 pb-32 md:pb-36">
+      <?!= include('PageStudent'); ?>
+      <?!= include('PageCounselor'); ?>
+    </main>
+
+    <!-- FIXED & ADAPTIVE BOTTOM NAVIGATION BAR -->
+    <!-- Tetap terkunci di bagian bawah viewport dan TIDAK PERNAH ikut ter-scroll ke atas! -->
+    <nav id="student-bottom-nav" class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl py-2 px-3">
+      <div class="max-w-md md:max-w-2xl mx-auto flex justify-around items-center">
+        <button onclick="switchTab('checkin', this)" class="nav-btn active flex flex-col items-center py-1 px-3 text-slate-400 transition hover:text-teal-600">
+          <i data-lucide="smile" class="w-5 h-5"></i>
+          <span data-i18n="nav.mood" class="text-[10px] font-bold mt-1">Mood</span>
+        </button>
+        <button onclick="switchTab('journal', this)" class="nav-btn flex flex-col items-center py-1 px-3 text-slate-400 transition hover:text-teal-600">
+          <i data-lucide="book-open" class="w-5 h-5"></i>
+          <span data-i18n="nav.journal" class="text-[10px] font-bold mt-1">Jurnal</span>
+        </button>
+        <button onclick="switchTab('report', this)" class="nav-btn flex flex-col items-center py-1 px-3 text-slate-400 transition hover:text-teal-600">
+          <i data-lucide="shield-alert" class="w-5 h-5"></i>
+          <span data-i18n="nav.report" class="text-[10px] font-bold mt-1">Lapor</span>
+        </button>
+        <button onclick="switchTab('resources', this)" class="nav-btn flex flex-col items-center py-1 px-3 text-slate-400 transition hover:text-teal-600">
+          <i data-lucide="sparkles" class="w-5 h-5"></i>
+          <span data-i18n="nav.education" class="text-[10px] font-bold mt-1">Edukasi</span>
+        </button>
+        <button onclick="switchTab('chat', this)" class="nav-btn flex flex-col items-center py-1 px-3 text-slate-400 transition hover:text-teal-600">
+          <i data-lucide="message-circle" class="w-5 h-5"></i>
+          <span data-i18n="nav.counseling" class="text-[10px] font-bold mt-1">Konseling</span>
+        </button>
+        <button onclick="switchTab('survey', this)" class="nav-btn flex flex-col items-center py-1 px-3 text-slate-400 transition hover:text-teal-600">
+          <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+          <span data-i18n="nav.survey" class="text-[10px] font-bold mt-1">Survei</span>
+        </button>
+      </div>
+    </nav>
+
+  </div>
+
+  <?!= include('Modals'); ?>
+  <script>
+    const SERVER_CONTEXT = <?!= typeof serverContext !== 'undefined' ? serverContext : 'null' ?>;
+  </script>
+  <?!= include('ClientState'); ?>
+  <?!= include('ClientStudent'); ?>
+  <?!= include('ClientCounselor'); ?>
+</body>
+</html>

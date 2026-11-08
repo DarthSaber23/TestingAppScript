@@ -1,0 +1,618 @@
+      <div id="view-student" class="space-y-6">
+        
+        <!-- TAB 1: MOOD CHECK-IN -->
+        <section id="tab-checkin" class="tab-content active">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Left Column: Check-in Actions -->
+            <div class="lg:col-span-7 space-y-5">
+              <div class="bg-gradient-to-br from-teal-600 via-teal-700 to-emerald-700 p-6 sm:p-7 rounded-3xl text-white shadow-xl shadow-teal-700/10 relative overflow-hidden">
+                <div class="flex justify-between items-center opacity-85 text-xs font-semibold uppercase tracking-wider">
+                  <span data-i18n="mood.daily_reflection">Refleksi Harian</span>
+                  <span id="mood-streak-badge" class="bg-white/20 px-2.5 py-1 rounded-full backdrop-blur-sm">🔥 3 Hari Berturut-turut</span>
+                </div>
+                <h2 data-i18n="mood.how_are_you" class="text-xl sm:text-2xl font-extrabold mt-2">Gimana Perasaanmu Hari Ini? ✨</h2>
+                <p data-i18n="mood.subtitle" class="text-xs sm:text-sm text-teal-50 mt-1">Pilih emoji yang paling mewakili keadaan hatimu saat ini.</p>
+              </div>
+
+              <!-- Pilihan Roda Emosi (Feelings Wheel: Core -> Secondary) -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3.5">
+                <label data-i18n="mood.select_core" class="text-xs font-bold text-slate-600 uppercase tracking-wider block">Pilih Emosi Utama (Feelings Wheel):</label>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5" id="mood-selector">
+                  <!-- Populated dynamically by renderFeelingsWheelSelector() with static fallback -->
+                  <button type="button" data-mood="Happy" data-core="Happy" onclick="selectMood('Happy', this)" class="mood-core-btn p-3 bg-amber-50/60 border border-amber-200 rounded-2xl flex flex-col items-center hover:bg-amber-100 hover:border-amber-400 transition transform hover:-translate-y-0.5 cursor-pointer">
+                    <span class="text-2xl sm:text-3xl">😄</span>
+                    <span class="text-[11px] sm:text-xs font-bold text-amber-900 mt-1">Senang (Happy)</span>
+                  </button>
+                  <button type="button" data-mood="Surprise" data-core="Surprise" onclick="selectMood('Surprise', this)" class="mood-core-btn p-3 bg-sky-50/60 border border-sky-200 rounded-2xl flex flex-col items-center hover:bg-sky-100 hover:border-sky-400 transition transform hover:-translate-y-0.5 cursor-pointer">
+                    <span class="text-2xl sm:text-3xl">😲</span>
+                    <span class="text-[11px] sm:text-xs font-bold text-sky-900 mt-1">Terkejut (Surprise)</span>
+                  </button>
+                  <button type="button" data-mood="Sad" data-core="Sad" onclick="selectMood('Sad', this)" class="mood-core-btn p-3 bg-blue-50/60 border border-blue-200 rounded-2xl flex flex-col items-center hover:bg-blue-100 hover:border-blue-400 transition transform hover:-translate-y-0.5 cursor-pointer">
+                    <span class="text-2xl sm:text-3xl">😢</span>
+                    <span class="text-[11px] sm:text-xs font-bold text-blue-900 mt-1">Sedih (Sad)</span>
+                  </button>
+                  <button type="button" data-mood="Disgust" data-core="Disgust" onclick="selectMood('Disgust', this)" class="mood-core-btn p-3 bg-purple-50/60 border border-purple-200 rounded-2xl flex flex-col items-center hover:bg-purple-100 hover:border-purple-400 transition transform hover:-translate-y-0.5 cursor-pointer">
+                    <span class="text-2xl sm:text-3xl">🤢</span>
+                    <span class="text-[11px] sm:text-xs font-bold text-purple-900 mt-1">Muak (Disgust)</span>
+                  </button>
+                  <button type="button" data-mood="Anger" data-core="Anger" onclick="selectMood('Anger', this)" class="mood-core-btn p-3 bg-rose-50/60 border border-rose-200 rounded-2xl flex flex-col items-center hover:bg-rose-100 hover:border-rose-400 transition transform hover:-translate-y-0.5 cursor-pointer">
+                    <span class="text-2xl sm:text-3xl">😠</span>
+                    <span class="text-[11px] sm:text-xs font-bold text-rose-900 mt-1">Marah (Anger)</span>
+                  </button>
+                  <button type="button" data-mood="Fear" data-core="Fear" onclick="selectMood('Fear', this)" class="mood-core-btn p-3 bg-emerald-50/60 border border-emerald-200 rounded-2xl flex flex-col items-center hover:bg-emerald-100 hover:border-emerald-400 transition transform hover:-translate-y-0.5 cursor-pointer">
+                    <span class="text-2xl sm:text-3xl">😨</span>
+                    <span class="text-[11px] sm:text-xs font-bold text-emerald-900 mt-1">Takut (Fear)</span>
+                  </button>
+                </div>
+                <!-- Secondary Emotions Drawer (Shown when a Core Emotion is clicked) -->
+                <div id="secondary-mood-container" class="hidden pt-3 border-t border-slate-100 space-y-2">
+                  <label id="secondary-mood-label" data-i18n="mood.select_secondary" class="text-[11px] font-bold text-teal-700 uppercase tracking-wider block">Pilih Emosi Spesifik:</label>
+                  <div id="secondary-mood-pills" class="flex flex-wrap gap-2"></div>
+                </div>
+              </div>
+
+              <!-- Tag Pemicu Emosi -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                <label data-i18n="mood.triggers" class="text-xs font-bold text-slate-600 uppercase tracking-wider block">Faktor Pemicu (Bisa Pilih Beberapa):</label>
+                <div class="flex flex-wrap gap-2" id="trigger-chips">
+                  <span onclick="toggleChip(this)" class="chip cursor-pointer text-xs px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 font-medium transition select-none hover:border-teal-300">📚 Tugas Sekolah</span>
+                  <span onclick="toggleChip(this)" class="chip cursor-pointer text-xs px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 font-medium transition select-none hover:border-teal-300">👥 Teman Sebaya</span>
+                  <span onclick="toggleChip(this)" class="chip cursor-pointer text-xs px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 font-medium transition select-none hover:border-teal-300">🏠 Rumah / Keluarga</span>
+                  <span onclick="toggleChip(this)" class="chip cursor-pointer text-xs px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 font-medium transition select-none hover:border-teal-300">😴 Kurang Tidur</span>
+                  <span onclick="toggleChip(this)" class="chip cursor-pointer text-xs px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 font-medium transition select-none hover:border-teal-300">📝 Ujian / Nilai</span>
+                </div>
+              </div>
+
+              <!-- Catatan Mood / Remarks (Opsional) -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-2">
+                <div class="flex items-center justify-between">
+                  <label id="label-mood-remarks" data-i18n="mood.tell_me_more" class="text-xs font-bold text-slate-600 uppercase tracking-wider block">Tell me more (Opsional):</label>
+                  <span id="draft-mood-indicator" class="text-xs text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full font-semibold hidden">✓ Draft tersimpan</span>
+                </div>
+                <textarea id="mood-notes" rows="2" data-i18n-placeholder="mood.notes_placeholder" placeholder="Ceritakan apa yang membuatmu merasa seperti ini... Bebas tanpa beban." class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium leading-relaxed"></textarea>
+              </div>
+
+              <button id="btn-save-mood" onclick="saveMoodCheckin()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-teal-600/20 transition flex items-center justify-center gap-2 text-sm">
+                <span data-i18n="mood.save_btn">Simpan Mood Hari Ini</span>
+                <i data-lucide="check" class="w-4 h-4"></i>
+              </button>
+
+              <!-- Interactive 7-Day Personal Mood Trend Chart with Embedded Collapsible Remarks Drawer -->
+              <div id="student-mood-trend-card" class="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm">
+                      📈
+                    </div>
+                    <div>
+                      <h3 class="font-extrabold text-xs sm:text-sm text-slate-800" data-i18n="mood.trend_title">Tren Emosimu 7 Hari Terakhir</h3>
+                      <p class="text-[11px] text-slate-500" data-i18n="mood.trend_sub">Pantau pola suasana hatimu untuk refleksi diri yang lebih sehat.</p>
+                    </div>
+                  </div>
+                  <span class="text-[10px] bg-teal-50 text-teal-700 font-bold px-2 py-0.5 rounded-full border border-teal-200" data-i18n="mood.self_reflection">
+                    Refleksi Mandiri
+                  </span>
+                </div>
+
+                <div class="relative w-full overflow-hidden bg-slate-50/60 rounded-2xl border border-slate-100 p-3 pt-6">
+                  <!-- Tooltip interaktif hover/touch -->
+                  <div id="mood-trend-tooltip" class="hidden absolute z-20 pointer-events-none bg-slate-900 text-white text-[11px] px-2.5 py-1.5 rounded-xl shadow-lg transition-all duration-150 transform -translate-x-1/2 -translate-y-full">
+                    <div id="tooltip-date" class="text-[9px] text-slate-400 font-medium">Tanggal</div>
+                    <div id="tooltip-mood" class="font-bold flex items-center gap-1">😊 Baik</div>
+                    <div id="tooltip-triggers" class="text-[9px] text-teal-300">Faktor</div>
+                  </div>
+
+                  <svg id="svg-student-mood-trend" class="w-full h-44 sm:h-52 overflow-visible" viewBox="0 0 500 200" preserveAspectRatio="xMidYMid meet">
+                    <!-- Grid lines, polyline, gradient fill, and interactive circle dots -->
+                  </svg>
+                </div>
+
+                <!-- Toggle Button Riwayat & Catatan Mood (Collapsible Drawer) -->
+                <button type="button" id="btn-toggle-mood-remarks" onclick="toggleStudentMoodRemarks()" class="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition border border-slate-200/70 cursor-pointer">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="message-square" class="w-3.5 h-3.5 text-teal-600"></i>
+                    <span data-i18n="mood.toggle_remarks">Riwayat & Catatan Mood</span>
+                    <span id="mood-count-badge" class="text-[10px] bg-teal-100 text-teal-800 font-extrabold px-2 py-0.5 rounded-full">0 Catatan</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-slate-400 font-normal">Klik untuk lihat</span>
+                    <i id="student-mood-chevron" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
+                  </div>
+                </button>
+
+                <!-- Embedded Drawer Riwayat Check-in Mood (Hidden/Minimized by Default) -->
+                <div id="student-mood-remarks-drawer" class="hidden pt-4 border-t border-slate-100 space-y-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Daftar Refleksi Harian</span>
+                    <button type="button" onclick="loadStudentMoodTrend()" class="text-[11px] text-teal-700 hover:text-teal-800 font-semibold flex items-center gap-1 hover:underline transition">
+                      <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                      <span>Segarkan</span>
+                    </button>
+                  </div>
+                  <div id="mood-history-list" class="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                    <div class="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-100">
+                      Memuat riwayat mood...
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Column: Desktop Insight & Quick Relief Cards -->
+            <div class="lg:col-span-5 space-y-5">
+              <!-- Banner Kuesioner Survei Aktif Siswa -->
+              <div id="banner-active-survey" class="hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 text-white rounded-3xl p-6 shadow-md relative overflow-hidden space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-bold bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full uppercase tracking-wider">
+                    📋 Survei Kesejahteraan & Kesiapan Belajar
+                  </span>
+                  <span class="text-[10px] bg-white/25 px-2 py-0.5 rounded-full font-bold">Aktif</span>
+                </div>
+                <div>
+                  <h3 id="survey-banner-title" class="text-base sm:text-lg font-extrabold leading-snug">Kuesioner Well-being & Minat Bakat Siswa</h3>
+                  <p id="survey-banner-desc" class="text-xs text-indigo-100 mt-1">Evaluasi berkala dimensi Care Core, Business Boost, dan Education Impact.</p>
+                </div>
+                <div id="survey-picker-container" class="hidden pt-1">
+                  <label for="survey-picker-select" class="text-[11px] font-bold text-indigo-100 block mb-1">Pilih Kuesioner:</label>
+                  <select id="survey-picker-select" onchange="onSurveyPickerChange(this.value)" class="w-full bg-indigo-900/60 text-white text-xs font-semibold p-2 rounded-xl border border-indigo-400/50 focus:outline-none focus:ring-2 focus:ring-white/50">
+                  </select>
+                </div>
+                <div class="flex items-center gap-2 pt-1">
+                  <button id="btn-start-survey" onclick="openSurveyWizard()" class="bg-white text-indigo-700 hover:bg-indigo-50 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm shadow transition flex items-center gap-1.5">
+                    <span data-i18n="survey.btn_start">Mulai Kuesioner</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                  </button>
+                  <button id="btn-open-survey-tab" onclick="switchTab('survey')" class="bg-indigo-900/60 hover:bg-indigo-900/90 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm border border-indigo-400/50 shadow transition flex items-center gap-1.5">
+                    <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
+                    <span data-i18n="survey.btn_view_results">Lihat Hasil Survei</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Daily Motivation Banner from Guru BK -->
+              <div id="daily-motivation-banner" class="bg-gradient-to-br from-amber-50 via-teal-50/50 to-emerald-50 border border-amber-200/80 rounded-3xl p-6 shadow-sm space-y-3.5 relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-2xl bg-amber-100 text-amber-700 border border-amber-300/60 flex items-center justify-center shadow-sm">
+                      <i data-lucide="quote" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                      <h3 class="font-extrabold text-xs text-slate-900 uppercase tracking-wide">Kata Motivasi Hari Ini</h3>
+                      <p class="text-[10px] text-teal-700 font-semibold">Pesan Semangat dari Guru BK</p>
+                    </div>
+                  </div>
+                  <span class="text-[10px] bg-amber-100/80 text-amber-900 border border-amber-300/60 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                    <span>✨</span> Harian
+                  </span>
+                </div>
+                
+                <div class="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-amber-200/50 shadow-sm space-y-2">
+                  <p class="quote-text text-xs sm:text-sm text-slate-800 font-medium italic leading-relaxed">
+                    "Langkah kecil yang kamu ambil hari ini jauh lebih berarti daripada seribu niat yang kamu tunda besok."
+                  </p>
+                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-2 border-t border-amber-100/80 text-[11px]">
+                    <div class="flex items-center gap-1.5 text-teal-800 font-bold">
+                      <i data-lucide="user-check" class="w-3.5 h-3.5 text-teal-600"></i>
+                      <span id="quote-author" class="quote-author">Ibu Maria, S.Psi</span>
+                    </div>
+                    <span id="quote-note" class="quote-note text-[10px] text-slate-500 italic">Pesan semangat pekan ini dari Guru BK untuk seluruh siswa.</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick 4-7-8 Breathing Teaser -->
+              <div class="bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-100 rounded-3xl p-6 shadow-sm space-y-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-2xl bg-teal-100 text-teal-700 flex items-center justify-center text-lg">🌿</div>
+                  <div>
+                    <h3 class="font-extrabold text-sm text-teal-900">Merasa Cemas atau Lelah?</h3>
+                    <p class="text-xs text-teal-700">Latihan napas 4-7-8 cepat meredakan ketegangan tubuh.</p>
+                  </div>
+                </div>
+                <button onclick="switchTab('resources')" class="w-full bg-white hover:bg-teal-600 hover:text-white text-teal-800 font-bold py-2.5 rounded-xl text-xs border border-teal-200 shadow-sm transition flex items-center justify-center gap-1.5">
+                  <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                  <span>Buka Panduan Napas 4-7-8</span>
+                </button>
+              </div>
+
+              <!-- Counseling Assistance Info -->
+              <div class="p-4 bg-teal-50/60 rounded-2xl border border-teal-100 text-xs text-teal-800 flex items-start gap-2.5">
+                <i data-lucide="shield-check" class="w-4 h-4 text-teal-600 shrink-0 mt-0.5"></i>
+                <p class="text-[11px] leading-relaxed">
+                  <strong>Privasi Terjamin:</strong> Catatan dan riwayat mood Anda hanya dapat dilihat oleh Anda dan Guru BK untuk bimbingan konseling yang tepat sasaran, tidak pernah dibagikan kepada siswa lain.
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- TAB 2: JURNAL PRIBADI -->
+        <section id="tab-journal" class="tab-content">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Left Column: Journal Editor -->
+            <div class="lg:col-span-7 space-y-4">
+              <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div>
+                    <h2 data-i18n="journal.title" class="text-lg font-extrabold text-slate-900">Jurnal Pribadi 📖</h2>
+                    <p data-i18n="journal.subtitle" class="text-xs text-slate-500">Ruang aman untuk menumpahkan pikiranmu secara rahasia.</p>
+                  </div>
+                  <span id="draft-journal-indicator" class="text-xs text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-full font-semibold hidden">✓ Draft tersimpan</span>
+                </div>
+
+                <form id="journal-form" onsubmit="event.preventDefault(); submitJournal();" class="space-y-4">
+                  <div>
+                    <label data-i18n="journal.input_title" class="text-xs font-bold text-slate-700 block mb-1">Judul Jurnal:</label>
+                    <input type="text" id="journal-title" data-i18n-placeholder="journal.input_title_placeholder" placeholder="Judul tulisan atau topik hari ini..." class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium" required>
+                  </div>
+                  
+                  <div>
+                    <label data-i18n="journal.input_content" class="text-xs font-bold text-slate-700 block mb-1">Isi Cerita / Refleksi:</label>
+                    <textarea id="journal-content" rows="6" data-i18n-placeholder="journal.input_content_placeholder" placeholder="Ceritakan apa saja yang ada di pikiranmu... Tak ada yang menilai." class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium leading-relaxed" required></textarea>
+                  </div>
+                  
+                  <div class="flex items-center justify-between pt-2">
+                    <span class="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                      <i data-lucide="lock" class="w-4 h-4 text-teal-600"></i>
+                      <span>Hanya terbaca oleh Anda</span>
+                    </span>
+                    <button type="submit" id="btn-save-journal" class="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-teal-600/20 transition flex items-center gap-1.5">
+                      <i data-lucide="save" class="w-4 h-4"></i>
+                      <span data-i18n="journal.save_btn">Simpan Jurnal</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- Right Column: Previous Journal Entries List -->
+            <div class="lg:col-span-5 space-y-4">
+              <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div class="flex items-center gap-2">
+                    <h3 data-i18n="journal.history_title" class="text-xs font-bold text-slate-800 uppercase tracking-wider">Riwayat Catatan Tersimpan</h3>
+                    <span id="journal-count-badge" class="text-[10px] bg-teal-100 text-teal-800 font-extrabold px-2 py-0.5 rounded-full">0 Catatan</span>
+                  </div>
+                  <button type="button" onclick="loadJournals()" class="text-[11px] text-teal-700 hover:text-teal-800 font-semibold flex items-center gap-1 hover:underline transition">
+                    <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                    <span>Segarkan</span>
+                  </button>
+                </div>
+                <div id="journal-list" class="space-y-2.5 max-h-[480px] overflow-y-auto pr-1">
+                  <div class="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-100">
+                    Memuat riwayat jurnal...
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- TAB 3: BULLYING REPORT -->
+        <section id="tab-report" class="tab-content">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Left Column: Report Form -->
+            <div class="lg:col-span-7 space-y-4">
+              <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div class="bg-rose-50 p-4 rounded-2xl border border-rose-200 flex items-start gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+                    <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <h2 data-i18n="report.title" class="text-sm font-bold text-rose-900">Layanan Aduan Aman & Terlindungi</h2>
+                    <p data-i18n="report.subtitle" class="text-xs text-rose-700 mt-0.5">Melihat atau mengalami tindakan yang tidak menyenangkan? Laporkan ke tim Guru BK secara aman.</p>
+                  </div>
+                </div>
+
+                <form id="report-form" onsubmit="event.preventDefault(); submitBullyingReport();" class="space-y-4">
+                  <div>
+                    <label data-i18n="report.role_label" class="text-xs font-bold text-slate-700 block mb-1">Peran Pelapor:</label>
+                    <select id="report-role" class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 bg-slate-50 font-medium">
+                      <option value="Saya adalah Korban">Saya adalah Korban</option>
+                      <option value="Saya melihat kejadian (Saksi)">Saya melihat kejadian (Saksi)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div class="flex justify-between items-center mb-1">
+                      <label data-i18n="report.detail_label" class="text-xs font-bold text-slate-700">Detail Kejadian:</label>
+                      <span id="draft-report-indicator" class="text-xs text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full font-semibold hidden">✓ Draft tersimpan</span>
+                    </div>
+                    <textarea id="report-detail" rows="5" data-i18n-placeholder="report.detail_placeholder" placeholder="Kapan kejadiannya, lokasi, siapa yang terlibat, dan kronologi apa yang terjadi..." class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 bg-slate-50 font-medium leading-relaxed" required></textarea>
+                  </div>
+
+                  <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex items-center gap-3">
+                    <input type="checkbox" id="report-anon" class="w-4 h-4 rounded text-teal-600 focus:ring-0 cursor-pointer">
+                    <label for="report-anon" class="text-xs sm:text-sm text-slate-700 font-semibold cursor-pointer select-none">Kirim secara Anonim (Identitas & email dirahasiakan)</label>
+                  </div>
+
+                  <button type="submit" id="btn-submit-report" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-rose-600/20 transition flex items-center justify-center gap-2 text-sm">
+                    <i data-lucide="shield-check" class="w-4 h-4"></i>
+                    <span data-i18n="report.submit_btn">Kirim Laporan BK 🔒</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Right Column: Protection Policy & Emergency Hotlines -->
+            <div class="lg:col-span-5 space-y-4">
+              <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+                  <div class="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">
+                    <i data-lucide="lock" class="w-4 h-4"></i>
+                  </div>
+                  <h3 class="font-bold text-xs uppercase tracking-wider text-slate-800">Komitmen Perlindungan Saksi</h3>
+                </div>
+                <ul class="text-xs text-slate-600 space-y-2.5 leading-relaxed">
+                  <li class="flex items-start gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+                    <span>Identitas Anda dienkripsi dan tidak dibagikan ke pihak yang dilaporkan.</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+                    <span>Laporan langsung diteruskan ke Guru BK untuk ditindaklanjuti secara bijaksana.</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+                    <span>Sekolah menjamin perlindungan dari segala bentuk intimidasi lanjutan.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Hotline Krisis Darurat -->
+              <div class="bg-amber-50 p-5 rounded-3xl border border-amber-200 shadow-sm space-y-2">
+                <h4 class="font-bold text-xs text-amber-900 flex items-center gap-1.5">
+                  <i data-lucide="phone-call" class="w-4 h-4 text-amber-700"></i>
+                  <span>Bantuan Darurat Segera</span>
+                </h4>
+                <p class="text-xs text-amber-800 leading-relaxed">
+                  Jika Anda atau teman Anda berada dalam situasi bahaya fisik yang mendesak, segera hubungi kontak darurat sekolah atau ruang BK terdekat.
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- TAB 4: WELLBEING RESOURCES & BREATHING EXERCISE -->
+        <section id="tab-resources" class="tab-content">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Left Column: Interactive 4-7-8 Breathing Guide -->
+            <div class="lg:col-span-5 space-y-4">
+              <div class="bg-gradient-to-b from-teal-50 via-teal-50 to-emerald-50 border border-teal-200 p-6 rounded-3xl text-center space-y-4 shadow-sm">
+                <span data-i18n="education.breathing_title" class="text-[11px] font-bold uppercase tracking-wider text-teal-800 bg-teal-100 px-3 py-1 rounded-full inline-block">Latihan Napas 4-7-8</span>
+                <div class="flex justify-center my-4">
+                  <div id="breathing-orb" class="breathing-circle w-32 h-32 rounded-full bg-gradient-to-tr from-teal-600 to-emerald-500 text-white flex flex-col items-center justify-center shadow-xl shadow-teal-500/30 transition-all select-none">
+                    <span id="breathing-action" class="font-extrabold text-sm sm:text-base">Mulai</span>
+                    <span id="breathing-count" class="text-xs opacity-90 font-medium">Rileks</span>
+                  </div>
+                </div>
+                <p id="breathing-instruction" data-i18n="education.breathing_subtitle" class="text-xs sm:text-sm text-teal-950 font-medium leading-relaxed">
+                  Tarik napas selama 4 detik, tahan 7 detik, lalu hembuskan perlahan selama 8 detik.
+                </p>
+                <button id="btn-start-breathing" onclick="toggleBreathingGuide()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-bold px-6 py-2.5 rounded-xl shadow-md shadow-teal-600/20 transition">
+                  Mulai Relaksasi
+                </button>
+              </div>
+            </div>
+
+            <!-- Right Column: Educational Articles & Guidance -->
+            <div class="lg:col-span-7 space-y-4">
+              <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div>
+                    <h2 class="text-base font-extrabold text-slate-900">Ruang Edukasi Psikologis 📚</h2>
+                    <p class="text-xs text-slate-500">Artikel bimbingan dan strategi praktis dari Guru BK untuk merawat kesehatan mentalmu.</p>
+                  </div>
+                  <button type="button" onclick="loadEducationalArticles()" class="text-[11px] text-teal-700 hover:text-teal-800 font-semibold flex items-center gap-1 hover:underline transition">
+                    <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                    <span>Segarkan</span>
+                  </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5" id="resource-cards-list">
+                  <div class="col-span-full p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <span class="text-2xl block mb-1">📚</span>
+                    <p class="text-xs font-semibold">Memuat materi edukasi...</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- TAB 5: CHAT & APPOINTMENT WITH COUNSELOR -->
+        <section id="tab-chat" class="tab-content">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Left Column: Appointment Booking Form -->
+            <div class="lg:col-span-6 space-y-4">
+              <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div>
+                    <h2 data-i18n="counseling.title" class="text-sm font-extrabold text-slate-900">Ajukan Janji Temu Tatap Muka 📅</h2>
+                    <p data-i18n="counseling.subtitle" class="text-xs text-slate-500">Pilih waktu luang untuk sesi konseling tatap muka langsung.</p>
+                  </div>
+                  <span class="text-[9px] bg-teal-100 text-teal-800 px-2.5 py-1 rounded-full font-bold">Google Calendar</span>
+                </div>
+                
+                <form id="appointment-form" onsubmit="event.preventDefault(); submitAppointment();" class="space-y-3.5">
+                  <div>
+                    <label data-i18n="counseling.choose_counselor" class="text-xs font-bold text-slate-700 block mb-1">Pilih Guru BK:</label>
+                    <select id="apt-counselor" onchange="checkSlotAvailability()" class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 bg-slate-50 font-medium" required>
+                      <option value="">Memuat daftar Guru BK...</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label class="text-xs font-bold text-slate-700 block mb-1">Pilih Tanggal Konseling:</label>
+                    <input type="date" id="apt-date" onchange="checkSlotAvailability()" class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 bg-slate-50 font-medium" required>
+                  </div>
+
+                  <div>
+                    <div class="flex justify-between items-center mb-1">
+                      <label class="text-xs font-bold text-slate-700">Pilih Slot Waktu Kosong:</label>
+                      <span id="slot-status-info" class="text-[11px] text-teal-600 font-semibold">Pilih tanggal dahulu</span>
+                    </div>
+                    <select id="apt-slot" class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 bg-slate-50 font-medium" required>
+                      <option value="Istirahat Pertama (10:00 - 10:30)">Istirahat Pertama (10:00 - 10:30)</option>
+                      <option value="Istirahat Kedua (12:30 - 13:00)">Istirahat Kedua (12:30 - 13:00)</option>
+                      <option value="Pulang Sekolah (15:00 - 15:30)">Pulang Sekolah (15:00 - 15:30)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label class="text-xs font-bold text-slate-700 block mb-1">Topik Konseling Singkat:</label>
+                    <input type="text" id="apt-topic" placeholder="Misal: Kesulitan belajar matematika / masalah teman..." class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 bg-slate-50 font-medium" required>
+                  </div>
+
+                  <button type="submit" id="btn-book-apt" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 rounded-2xl text-xs sm:text-sm shadow-md shadow-teal-600/20 transition flex items-center justify-center gap-1.5">
+                    <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                    <span data-i18n="counseling.book_btn">Ajukan Janji Temu</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Right Column: My Appointments List & Direct Chat Profile -->
+            <div class="lg:col-span-6 space-y-4">
+              <!-- Counselor Direct Chat Contact -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Konselor Tersedia Untuk Chat</h3>
+                <div class="space-y-2.5" id="counselor-cards-list">
+                  <div class="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-100">
+                    Memuat daftar Guru BK dari database...
+                  </div>
+                </div>
+              </div>
+
+              <!-- Student Appointments Tracker -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <i data-lucide="calendar" class="w-4 h-4 text-teal-600"></i>
+                    <span>Status Janji Temu Saya</span>
+                  </h3>
+                  <button onclick="loadStudentAppointments()" class="text-[11px] text-teal-600 hover:underline font-medium">Segarkan</button>
+                </div>
+                <div id="student-appointments-list" class="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
+                  <p class="text-slate-400 text-xs italic">Belum ada janji temu yang diajukan.</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- TAB 6: HASIL & LAPORAN SURVEI SISWA -->
+        <section id="tab-survey" class="tab-content space-y-6">
+          <div class="bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 text-white rounded-3xl p-6 sm:p-7 shadow-xl shadow-indigo-950/10 space-y-3 relative overflow-hidden">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-[11px] font-bold bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full uppercase tracking-wider">
+                📊 Laporan Hasil Survei Psikologis Siswa
+              </span>
+              <button onclick="loadStudentSurveyResults()" class="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Segarkan Hasil</span>
+              </button>
+            </div>
+            <div>
+              <h2 id="student-survey-report-title" class="text-xl sm:text-2xl font-extrabold leading-snug">Analisis Kesejahteraan & Minat Bakat</h2>
+              <p id="student-survey-report-desc" class="text-xs sm:text-sm text-indigo-100 mt-1 max-w-2xl leading-relaxed">
+                Evaluasi diri berdasarkan kuesioner yang telah kamu isi. Pantau spektrum potensimu secara mandiri.
+              </p>
+            </div>
+            
+            <!-- History response selector -->
+            <div id="student-survey-history-picker" class="pt-2 flex flex-col sm:flex-row items-start sm:items-center gap-2 max-w-md">
+              <label for="student-survey-history-select" class="text-xs font-bold text-indigo-100 shrink-0">Pilih Tanggal Pengisian:</label>
+              <select id="student-survey-history-select" onchange="onStudentSurveyHistoryChange(this.value)" class="w-full bg-indigo-900/80 text-white text-xs font-semibold p-2.5 rounded-xl border border-indigo-400/50 focus:outline-none focus:ring-2 focus:ring-white">
+                <option value="">Memuat riwayat pengisian...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Empty State (Belum mengisi survei) -->
+          <div id="student-survey-empty-state" class="hidden bg-white p-8 sm:p-12 rounded-3xl border border-slate-200 shadow-sm text-center space-y-4 max-w-lg mx-auto">
+            <div class="w-16 h-16 rounded-3xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center text-3xl mx-auto shadow-inner">
+              📋
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-extrabold text-slate-800">Belum Ada Hasil Kuesioner</h3>
+              <p class="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
+                Kamu belum pernah mengisi survei psikologis atau kuesioner minat bakat. Buka tab Mood untuk melihat kuesioner yang aktif.
+              </p>
+            </div>
+            <button onclick="switchTab('checkin'); openSurveyWizard();" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-2xl text-xs sm:text-sm shadow-md transition inline-flex items-center gap-2">
+              <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+              <span>Isi Survei Sekarang</span>
+            </button>
+          </div>
+
+          <!-- Main Report Content (Visible when survey data is loaded) -->
+          <div id="student-survey-report-content" class="space-y-6">
+            <!-- Dominant Traits Highlights Card -->
+            <div class="bg-gradient-to-br from-indigo-50 via-purple-50/60 to-pink-50/40 p-6 rounded-3xl border border-indigo-100 shadow-sm space-y-3">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                  ✨
+                </div>
+                <div>
+                  <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 uppercase tracking-wide">Dimensi / Karakter Dominan</h3>
+                  <p class="text-[11px] text-slate-500">Skor tertinggi dari hasil evaluasimu</p>
+                </div>
+              </div>
+              <div id="student-survey-top-traits" class="flex flex-wrap gap-2.5 pt-1">
+                <!-- Badges rendered dynamically -->
+              </div>
+            </div>
+
+            <!-- Trait Spectrum Bars (0 - 100%) -->
+            <div class="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-sm">
+                    📊
+                  </div>
+                  <div>
+                    <h3 class="font-extrabold text-sm sm:text-base text-slate-900">Spektrum Persentase Skor per Dimensi</h3>
+                    <p class="text-[11px] text-slate-500">Skala 0% sampai 100% berdasarkan kesesuaian jawabanmu</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div id="student-trait-spectrum-section" class="space-y-4 pt-1">
+                <!-- Spectrum bars rendered dynamically -->
+              </div>
+            </div>
+
+            <!-- Question Breakdown Section -->
+            <div class="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded-xl bg-pink-50 text-pink-700 flex items-center justify-center font-bold text-sm">
+                    📝
+                  </div>
+                  <div>
+                    <h3 class="font-extrabold text-sm sm:text-base text-slate-900">Rincian Jawaban Butir Kuesioner</h3>
+                    <p class="text-[11px] text-slate-500">Transparansi jawaban yang kamu kirimkan pada sesi ini</p>
+                  </div>
+                </div>
+                <span id="student-survey-questions-count" class="text-[10px] bg-slate-100 text-slate-600 font-bold px-2.5 py-1 rounded-full">0 Butir</span>
+              </div>
+
+              <div id="student-survey-questions-list" class="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
+                <!-- Question rows rendered dynamically -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>

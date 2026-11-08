@@ -1,0 +1,395 @@
+      <div id="view-counselor" class="space-y-6 hidden">
+        
+        <!-- Header Ringkasan BK (KPI Metrics) -->
+        <div class="bg-slate-900 text-white p-6 sm:p-7 rounded-3xl shadow-xl border border-slate-800">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-800">
+            <div>
+              <div class="flex items-center gap-2">
+                <span data-i18n="counselor.dashboard_badge" class="text-xs font-bold text-teal-400 uppercase tracking-wider">Dashboard Konselor</span>
+                <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full border border-slate-700">Triage Active</span>
+              </div>
+              <h2 data-i18n="counselor.hub_title" class="text-lg sm:text-xl font-extrabold mt-1">Pusat Pendampingan Siswa (Guru BK SMA)</h2>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button id="btn-open-survey-cms" onclick="openSurveyEditor()" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-purple-500 transition flex items-center gap-1 shadow-sm">
+                <i data-lucide="clipboard-list" class="w-3.5 h-3.5"></i>
+                <span data-i18n="counselor.btn_create_survey">+ Buat Survei</span>
+              </button>
+              <button id="btn-open-article-cms" onclick="openArticleEditor()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-teal-500 transition flex items-center gap-1 shadow-sm">
+                <i data-lucide="book-plus" class="w-3.5 h-3.5"></i>
+                <span data-i18n="counselor.btn_create_article">+ Tulis Artikel</span>
+              </button>
+              <button id="btn-edit-quote-dash" onclick="openEditQuoteModal()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-amber-500 transition flex items-center gap-1 shadow-sm">
+                <i data-lucide="quote" class="w-3.5 h-3.5"></i>
+                <span data-i18n="counselor.btn_edit_quote">+ Kata Motivasi</span>
+              </button>
+              <button id="btn-admin-add-counselor-dash" onclick="openAdminCounselorModal()" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-indigo-500 transition flex items-center gap-1 shadow-sm">
+                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                <span data-i18n="counselor.btn_add_counselor">+ Tambah Guru BK</span>
+              </button>
+              <button onclick="loadCounselorDashboard()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-700 transition flex items-center gap-1">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span data-i18n="btn.refresh">Segarkan Data</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 Metric Cards Grid -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-4 pt-2">
+            <div class="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700/60">
+              <p data-i18n="counselor.metric_checkins" class="text-[11px] text-slate-400 font-medium">Check-in Siswa</p>
+              <p id="metric-checkins" class="text-xl sm:text-2xl font-extrabold text-white mt-0.5">0</p>
+            </div>
+            <div class="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700/60">
+              <p data-i18n="counselor.metric_reports" class="text-[11px] text-slate-400 font-medium">Laporan Pengaduan Bullying</p>
+              <p id="metric-reports" class="text-xl sm:text-2xl font-extrabold text-rose-400 mt-0.5">0</p>
+            </div>
+            <div class="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700/60">
+              <p data-i18n="counselor.metric_appointments" class="text-[11px] text-slate-400 font-medium">Janji Temu Menunggu</p>
+              <p id="metric-appointments" class="text-xl sm:text-2xl font-extrabold text-amber-400 mt-0.5">0</p>
+            </div>
+            <div class="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700/60">
+              <p data-i18n="counselor.metric_triage" class="text-[11px] text-slate-400 font-medium">Stress Level Butuh Perhatian</p>
+              <p id="triage-badge-count" class="text-xs sm:text-sm font-extrabold text-teal-400 mt-1 truncate">--</p>
+            </div>
+          </div>
+
+          <!-- Counselor Live Daily Motivation Preview -->
+          <div id="counselor-quote-preview" class="mt-4 p-3.5 bg-slate-800/90 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                <i data-lucide="quote" class="w-3.5 h-3.5"></i>
+              </div>
+              <p class="truncate text-slate-300">
+                <span class="text-amber-400 font-bold">Kata Motivasi Aktif:</span>
+                <span id="counselor-quote-text" class="text-white italic ml-1">"Memuat motivasi..."</span>
+              </p>
+            </div>
+            <button onclick="openEditQuoteModal()" class="shrink-0 text-[11px] text-amber-400 hover:text-amber-300 font-bold hover:underline flex items-center gap-1">
+              <span>Ubah</span>
+              <i data-lucide="edit-3" class="w-3 h-3"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- COUNSELOR SUB-TABS NAVIGATION -->
+        <div class="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto whitespace-nowrap">
+          <button id="subtab-btn-overview" onclick="switchCounselorSubtab('overview')" class="subtab-btn active px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-slate-900 text-white cursor-pointer shrink-0">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+            <span data-i18n="counselor.subtab_overview">Triage & Ringkasan</span>
+          </button>
+          <button id="subtab-btn-directory" onclick="switchCounselorSubtab('directory')" class="subtab-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition flex items-center gap-2 hover:bg-slate-100 cursor-pointer shrink-0">
+            <i data-lucide="users" class="w-4 h-4"></i>
+            <span data-i18n="counselor.subtab_directory">Direktori & Profil Holistik Siswa</span>
+          </button>
+        </div>
+
+        <!-- SUBTAB 1: TRIAGE & RINGKASAN (OVERVIEW) -->
+        <div id="counselor-subtab-overview" class="space-y-6">
+
+          <!-- Desktop Multi-column Main Counselor Workspace -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Left Section (7 cols): Early Warning Triage + Incident Reports -->
+            <div class="lg:col-span-7 space-y-6">
+              
+              <!-- TRIAGE EARLY WARNING BOX (Zoala Rule-based) -->
+              <div id="triage-panel" class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 class="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                    <span>Peringatan Dini / Rule-Based Triage</span>
+                  </h3>
+                  <span class="text-[10px] text-slate-400 font-medium">Auto-Flagging Siswa Berisiko</span>
+                </div>
+
+                <div id="triage-cards-list" class="space-y-3">
+                  <div class="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-100">
+                    Memuat status triage siswa...
+                  </div>
+                </div>
+              </div>
+
+              <!-- KELOLA LAPORAN MASUK (Bullying Case Management) -->
+              <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 class="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="shield-alert" class="w-4 h-4 text-rose-600"></i>
+                    <span data-i18n="counselor.reports_heading">Laporan Pengaduan Bullying</span>
+                  </h3>
+                  <span class="text-[10px] text-slate-400">Manajemen Kasus</span>
+                </div>
+                <div id="counselor-reports-list" class="space-y-3">
+                  <!-- Reports will be populated dynamically -->
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Right Section (5 cols): Percakapan Siswa & Permintaan Janji Temu -->
+            <div class="lg:col-span-5 space-y-6">
+              <!-- KOTAK PERCAKAPAN & PESAN MASUK SISWA -->
+              <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-xs">
+                      <i data-lucide="message-square" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                      <h3 class="text-xs sm:text-sm font-bold text-slate-900">Percakapan Pesan Siswa</h3>
+                      <p class="text-[10px] text-slate-400">Pesan Masuk & Konseling Tertutup</p>
+                    </div>
+                  </div>
+                  <button onclick="loadCounselorDashboard()" class="text-[11px] text-teal-600 hover:text-teal-700 font-semibold flex items-center gap-1 cursor-pointer">
+                    <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                    <span>Segarkan</span>
+                  </button>
+                </div>
+                <div id="counselor-messages-threads-list" class="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                  <div class="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-100">
+                    Memuat percakapan siswa...
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div>
+                    <h3 class="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                      <i data-lucide="calendar" class="w-4 h-4 text-teal-600"></i>
+                      <span>Pengajuan Janji Temu Tatap Muka</span>
+                    </h3>
+                    <p class="text-[11px] text-slate-400">Sinkronisasi Otomatis Google Calendar</p>
+                  </div>
+                </div>
+                <div id="counselor-appointments-list" class="space-y-3">
+                  <!-- Appointments will be populated dynamically -->
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- KELOLA EDUKASI PSIKOLOGIS & CMS ARTIKEL (Guru BK / Admin) -->
+          <div class="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-teal-700 uppercase tracking-wider">CMS Edukasi Psikologis</span>
+                  <span id="counselor-articles-count" class="text-[10px] bg-teal-100 text-teal-800 font-extrabold px-2 py-0.5 rounded-full">3 Artikel</span>
+                </div>
+                <h3 class="text-base font-extrabold text-slate-900 mt-0.5">Kelola Artikel Bimbingan & Relaksasi Siswa</h3>
+                <p class="text-xs text-slate-500">Artikel yang diterbitkan di sini akan langsung tampil pada Tab Edukasi di akun seluruh siswa.</p>
+              </div>
+              <button onclick="openArticleEditor()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-teal-600/20 transition flex items-center gap-1.5 self-start sm:self-auto cursor-pointer">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                <span>+ Tulis Artikel Baru</span>
+              </button>
+            </div>
+
+            <div id="counselor-articles-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <!-- Populated dynamically by loadEducationalArticles() -->
+            </div>
+          </div>
+
+          <!-- KELOLA SURVEI & KUESIONER PSIKOLOGIS (Guru BK / Admin) -->
+          <div class="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-purple-700 uppercase tracking-wider">CMS Kuesioner Survei</span>
+                  <span id="counselor-surveys-count" class="text-[10px] bg-purple-100 text-purple-800 font-extrabold px-2 py-0.5 rounded-full">0 Survei</span>
+                </div>
+                <h3 class="text-base font-extrabold text-slate-900 mt-0.5">Kelola Kuesioner Kesejahteraan Siswa</h3>
+                <p class="text-xs text-slate-500">Kuesioner yang aktif akan langsung muncul di beranda siswa untuk diisi.</p>
+              </div>
+              <button onclick="openSurveyEditor()" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-purple-600/20 transition flex items-center gap-1.5 self-start sm:self-auto cursor-pointer">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                <span>+ Buat Survei Baru</span>
+              </button>
+            </div>
+
+            <div id="counselor-surveys-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div class="p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 col-span-full">
+                Memuat daftar survei...
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- SUBTAB 2: DIREKTORI SISWA & DOSSIER HOLISTIK -->
+        <div id="counselor-subtab-directory" class="hidden space-y-6">
+
+          <!-- VIEW 2A: DIREKTORI SISWA (SEARCH & FILTER LIST) -->
+          <div id="student-directory-list-view" class="space-y-4">
+            
+            <!-- Filter & Search Toolbar -->
+            <div class="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div class="flex-1 relative">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                <input id="dossier-search-input" type="text" oninput="handleDossierSearchInput()" placeholder="Cari nama, email, atau kelas siswa..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-teal-500 transition">
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <div class="flex items-center gap-1.5 text-xs text-slate-500 font-bold shrink-0">
+                  <i data-lucide="filter" class="w-3.5 h-3.5 text-slate-400"></i>
+                  <span>Kelas:</span>
+                </div>
+                <select id="dossier-class-filter" onchange="loadStudentDirectory()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-teal-500 transition cursor-pointer">
+                  <option value="">Semua Kelas</option>
+                  <option value="SMP 7A">SMP 7A</option>
+                  <option value="SMP 7B">SMP 7B</option>
+                  <option value="SMP 8A">SMP 8A</option>
+                  <option value="SMP 8B">SMP 8B</option>
+                  <option value="SMP 9A">SMP 9A</option>
+                  <option value="SMP 9B">SMP 9B</option>
+                  <option value="SMA 10 IPA">SMA 10 IPA</option>
+                  <option value="SMA 10 IPS">SMA 10 IPS</option>
+                  <option value="SMA 11 IPA">SMA 11 IPA</option>
+                  <option value="SMA 11 IPS">SMA 11 IPS</option>
+                  <option value="SMA 12 IPA">SMA 12 IPA</option>
+                  <option value="SMA 12 IPS">SMA 12 IPS</option>
+                </select>
+                <button type="button" onclick="loadStudentDirectory()" class="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition cursor-pointer" title="Segarkan direktori">
+                  <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Grid Siswa -->
+            <div id="student-directory-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- VIEW 2B: DOSSIER HOLISTIK SISWA (DETAIL VIEW) -->
+          <div id="student-dossier-container" class="hidden space-y-6">
+
+            <!-- Loading Skeleton -->
+            <div id="dossier-loading-state" class="hidden p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-xs space-y-3">
+              <div class="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <p class="text-xs font-bold text-slate-600">Memuat profil holistik siswa...</p>
+            </div>
+
+            <!-- Dossier Content View -->
+            <div id="dossier-content-view" class="space-y-6">
+
+              <!-- Top Bar & Student Header Profile -->
+              <div class="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <button id="btn-back-to-directory" type="button" onclick="backToDirectoryList()" class="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl transition cursor-pointer">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    <span>Kembali ke Direktori</span>
+                  </button>
+                  <div class="flex items-center gap-2">
+                    <span id="dossier-student-status" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">ACTIVE</span>
+                  </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div class="flex items-center gap-3.5">
+                    <div id="dossier-student-avatar" class="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white font-black text-lg flex items-center justify-center shadow-sm shrink-0">
+                      BS
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <h2 id="dossier-student-name" class="text-lg sm:text-xl font-extrabold text-slate-900">Budi Santoso</h2>
+                        <span id="dossier-student-class" class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-teal-100 text-teal-800 border border-teal-200">SMP 8A</span>
+                      </div>
+                      <p id="dossier-student-email" class="text-xs text-slate-400 mt-0.5">siswa.test@ipeka.sch.id</p>
+                    </div>
+                  </div>
+                  <div>
+                    <button id="btn-dossier-chat" type="button" onclick="openChatFromDossier()" class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-sm transition cursor-pointer">
+                      <i data-lucide="message-square" class="w-4 h-4"></i>
+                      <span>Chat Konseling</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Personality Profile Trait Spectrum (0-100%) -->
+              <div class="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-bold text-teal-700 uppercase tracking-wider">Personality & Well-Being Profile</span>
+                      <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">Trait Spectrum</span>
+                    </div>
+                    <h3 class="text-base font-extrabold text-slate-900 mt-0.5">Spektrum Profil Karakter & Kepribadian (0-100%)</h3>
+                    <p class="text-xs text-slate-500">Skor persentase per kategori indikator hasil survei komprehensif siswa.</p>
+                  </div>
+                  <div class="flex items-center gap-2 text-[10px] font-bold flex-wrap">
+                    <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">0-39% Need Support</span>
+                    <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">40-69% Developing</span>
+                    <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">70-100% Thriving</span>
+                  </div>
+                </div>
+
+                <div id="trait-spectrum-section" class="space-y-4">
+                  <!-- Populated dynamically by renderStudentDossier -->
+                </div>
+              </div>
+
+              <!-- Tren Mood Individual Siswa -->
+              <div class="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                      <i data-lucide="trending-up" class="w-4 h-4 text-teal-600"></i>
+                      <span>Tren Suasana Hati (Mood) Siswa</span>
+                    </h3>
+                    <p class="text-xs text-slate-500">Pemantauan fluktuasi emosional 7 hari terakhir.</p>
+                  </div>
+                </div>
+
+                <div id="dossier-mood-chart" class="w-full">
+                  <!-- SVG Mood Trend populated dynamically -->
+                </div>
+
+                <!-- Toggle Button Riwayat Mood Siswa di Dossier -->
+                <button type="button" id="btn-toggle-dossier-mood-remarks" onclick="toggleDossierMoodRemarks()" class="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition border border-slate-200/70 cursor-pointer">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="message-square" class="w-3.5 h-3.5 text-teal-600"></i>
+                    <span>Catatan Refleksi & Riwayat Check-in Siswa</span>
+                    <span id="dossier-mood-count-badge" class="text-[10px] bg-teal-100 text-teal-800 font-extrabold px-2 py-0.5 rounded-full">Riwayat</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-slate-400 font-normal">Klik untuk lihat</span>
+                    <i id="dossier-mood-chevron" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
+                  </div>
+                </button>
+
+                <!-- Drawer Collapsible Riwayat Mood Siswa (Hidden by Default) -->
+                <div id="dossier-mood-remarks-drawer" class="hidden pt-4 border-t border-slate-100 space-y-3">
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600">Catatan Refleksi & Riwayat Check-in Siswa:</h4>
+                  <div id="dossier-mood-history-list" class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                    <p class="text-xs text-slate-400 italic">Belum ada catatan mood.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Riwayat Catatan Jurnal Siswa -->
+              <div class="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                      <i data-lucide="book-open" class="w-4 h-4 text-teal-600"></i>
+                      <span>Riwayat Catatan Jurnal & Refleksi</span>
+                    </h3>
+                    <p class="text-xs text-slate-500">Klik pada catatan jurnal untuk membaca isi lengkap.</p>
+                  </div>
+                </div>
+
+                <div id="dossier-journals-section" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <!-- Journal cards populated dynamically -->
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>

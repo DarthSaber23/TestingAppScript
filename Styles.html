@@ -1,0 +1,68 @@
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            sanctuary: {
+              50: '#F0FDFA',
+              100: '#CCFBF1',
+              500: '#14B8A6',
+              600: '#0D9488',
+              700: '#0F766E',
+            },
+            grounding: {
+              800: '#1E293B',
+              900: '#0F172A',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .hidden { display: none !important; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    
+    /* Navigation Styles */
+    .nav-btn.active { color: #0D9488; }
+    .nav-btn.active svg { transform: scale(1.1); color: #0D9488; }
+    
+    /* Breathing animation for 4-7-8 exercise */
+    @keyframes breathing {
+      0% { transform: scale(1); opacity: 0.85; }
+      21.05% { transform: scale(1.35); opacity: 1; }
+      57.89% { transform: scale(1.35); opacity: 1; }
+      100% { transform: scale(1); opacity: 0.85; }
+    }
+    .breathing-circle.active {
+      animation: breathing 19s infinite ease-in-out;
+    }
+    
+    /* Toast styles */
+    .toast {
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Custom Scrollbar for Desktop lists */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* Sanctuary Focus Rings & WCAG Accessibility */
+    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 2px solid #0D9488 !important;
+      outline-offset: 2px !important;
+    }
+  </style>

@@ -1,0 +1,590 @@
+  <!-- MODAL AUTENTIKASI GOOGLE DIPERLUKAN (ALCOA COMPLIANT) -->
+  <div id="auth-required-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 space-y-4 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-200 text-teal-600 flex items-center justify-center mx-auto shadow-sm">
+        <i data-lucide="shield-check" class="w-7 h-7"></i>
+      </div>
+      <div>
+        <h3 data-i18n="auth.title" class="font-extrabold text-base text-slate-900">Login Google Diperlukan</h3>
+        <p data-i18n="auth.sub" class="text-[11px] text-slate-400 mt-0.5">Standar Integritas & Keamanan ALCOA</p>
+      </div>
+
+      <div class="p-3 bg-teal-50/70 border border-teal-200/60 rounded-2xl text-[11px] text-teal-950 text-left space-y-1.5 leading-relaxed">
+        <p>Aplikasi ini mewajibkan setiap pengguna masuk menggunakan <strong>Akun Google resmi</strong> (Gmail atau Akun Belajar/Sekolah).</p>
+        <p class="text-teal-800 text-[10px]">Untuk menjaga privasi dan keabsahan rekam medis/konseling, input manual email bebas ditiadakan demi mencegah peniruan identitas.</p>
+      </div>
+
+      <div class="pt-2">
+        <a id="btn-google-login" target="_top" href="https://script.google.com/macros/s/AKfycbxomEGvXWt2rZPxuJviuPNgvlBsqQ9yAx3RMzQXI66Q3GkKhsvGOs1WCnl5kIps9P3rUw/exec" onclick="handleGoogleLoginClick(event)" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2">
+          <i data-lucide="log-in" class="w-4 h-4"></i>
+          <span data-i18n="auth.btn">Masuk dengan Akun Google</span>
+        </a>
+        <p class="text-[10px] text-slate-400 mt-2.5 text-center leading-relaxed">
+          💡 Tips: Jika Anda login ke beberapa akun Google sekaligus di satu browser, buka di <strong>Profil Chrome terpisah</strong> atau <strong>Jendela Incognito</strong> untuk mencegah bentrok sesi Google (Error 400).
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ONBOARDING SISWA BARU (WAJIB MENGISI KELAS) -->
+  <div id="student-onboarding-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 space-y-4">
+      <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
+        <div class="w-10 h-10 rounded-2xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-sm">
+          <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 data-i18n="onboarding.title" class="font-extrabold text-sm text-slate-900">Lengkapi Profil Siswa</h3>
+          <p class="text-[11px] text-slate-400">Wajib mengisi kelas untuk melanjutkan</p>
+        </div>
+      </div>
+
+      <div class="p-3 bg-teal-50/70 border border-teal-200/60 rounded-2xl text-[11px] text-teal-900 leading-relaxed">
+        Akun Anda belum terdaftar di database. Siswa baru <strong>wajib mengisi kelas</strong> agar dapat mengakses seluruh fitur konseling & kesejahteraan.
+      </div>
+
+      <form onsubmit="event.preventDefault(); handleStudentOnboarding();" class="space-y-3">
+        <div>
+          <label class="text-[10px] font-bold text-slate-700">Email Akun:</label>
+          <input type="email" id="onboarding-student-email" class="w-full mt-1 p-2.5 text-xs rounded-xl border border-slate-200 bg-slate-100 text-slate-500 font-medium" readonly>
+        </div>
+
+        <div>
+          <label class="text-[10px] font-bold text-slate-700">Nama Lengkap Siswa:</label>
+          <input type="text" id="onboarding-student-name" placeholder="Nama lengkap Anda..." class="w-full mt-1 p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium" required>
+        </div>
+
+        <div>
+          <label class="text-[10px] font-bold text-slate-700 flex items-center gap-1">
+            <span>Kelas Anda:</span>
+            <span class="text-rose-500 font-extrabold">*</span>
+          </label>
+          <input type="text" id="onboarding-student-class" placeholder="Contoh: SMA 11 IPA 2 atau SMP 8B" class="w-full mt-1 p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium" required>
+          <p class="text-[9px] text-slate-400 mt-1">*Data kelas wajib diisi untuk koordinasi dengan Guru BK.</p>
+        </div>
+
+        <button type="submit" id="btn-submit-onboarding" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5 mt-2">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span data-i18n="onboarding.btn">Simpan & Masuk ke Portal</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL EDIT KATA MOTIVASI HARIAN GURU BK -->
+  <div id="modal-edit-quote" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6 space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
+            <i data-lucide="quote" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 data-i18n="quote.title" class="font-extrabold text-sm text-slate-900">Perbarui Kata Motivasi Harian</h3>
+            <p class="text-[11px] text-slate-400">Ditampilkan di beranda refleksi seluruh siswa</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeEditQuoteModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-edit-quote" onsubmit="event.preventDefault(); submitDailyQuote();" class="space-y-4">
+        <div>
+          <label class="text-xs font-bold text-slate-700 block mb-1">Kutipan / Kata Motivasi:</label>
+          <textarea id="input-quote-text" rows="3" placeholder="Tuliskan kata motivasi untuk menyemangati siswa..." class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium leading-relaxed" required></textarea>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-700 block mb-1">Catatan / Konteks Tambahan (Opsional):</label>
+          <input type="text" id="input-quote-note" placeholder="Misal: Pesan menjelang pekan ujian semester..." class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium">
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeEditQuoteModal()" data-i18n="btn.cancel" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition">
+            Batal
+          </button>
+          <button type="submit" id="btn-save-quote" class="bg-teal-600 hover:bg-teal-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md shadow-teal-600/20 transition flex items-center gap-1.5">
+            <i data-lucide="save" class="w-4 h-4"></i>
+            <span data-i18n="quote.save">Simpan Kutipan</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DETAIL JURNAL PRIBADI -->
+  <div id="modal-journal-detail" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-start justify-between pb-3 border-b border-slate-100 shrink-0">
+        <div class="space-y-1 pr-3">
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] bg-teal-100 text-teal-800 font-extrabold px-2.5 py-0.5 rounded-full">📖 Catatan Pribadi</span>
+            <span id="journal-detail-date" class="text-[11px] text-slate-400 font-medium">Hari ini</span>
+          </div>
+          <h3 id="modal-journal-title" class="text-base sm:text-lg font-extrabold text-slate-900 leading-snug"><span id="journal-detail-title">Judul Jurnal</span></h3>
+        </div>
+        <button type="button" onclick="closeJournalDetailModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition shrink-0">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto pr-1">
+        <p id="journal-detail-content" class="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-normal"></p>
+      </div>
+      <div class="pt-3 border-t border-slate-100 flex justify-end shrink-0">
+        <button type="button" onclick="closeJournalDetailModal()" data-i18n="btn.close" class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL FULL READER ARTIKEL EDUKASI PSIKOLOGIS -->
+  <div id="article-reader-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+    <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-100">
+      
+      <!-- Top Bar: Category badge & Close button -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="text-base">📖</span>
+          <span class="reader-category text-xs font-extrabold uppercase tracking-wider text-teal-700 bg-teal-100 px-3 py-1 rounded-full">Edukasi</span>
+        </div>
+        <button type="button" onclick="closeArticleReader()" class="btn-close-reader text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Reader Scrollable Body -->
+      <div class="p-6 sm:p-8 overflow-y-auto space-y-5">
+        <!-- Cover Image -->
+        <div id="reader-cover-container" class="hidden">
+          <img id="reader-cover-img" src="" alt="Cover Artikel" class="reader-cover w-full h-48 sm:h-64 object-cover rounded-2xl shadow-sm border border-slate-100">
+        </div>
+
+        <div>
+          <h2 class="reader-title text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug"></h2>
+          <div class="flex items-center gap-2 mt-2 text-xs text-slate-500 font-medium">
+            <span class="reader-author font-semibold text-slate-700"></span>
+            <span>•</span>
+            <span class="reader-date"></span>
+          </div>
+        </div>
+
+        <div class="border-t border-slate-100 pt-3">
+          <div class="reader-content text-slate-800 text-sm sm:text-base leading-relaxed space-y-3">
+            <!-- Rendered from Markdown -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Bar -->
+      <div class="px-6 py-3.5 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between shrink-0 text-xs">
+        <span class="text-slate-400 text-[11px]">Bimbingan & Konseling Sekolah</span>
+        <button type="button" onclick="closeArticleReader()" class="btn-close-reader bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2 rounded-xl transition">
+          <span data-i18n="article.close">Tutup Artikel</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL CMS EDITOR ARTIKEL EDUKASI (GURU BK / ADMIN) -->
+  <div id="modal-article-editor" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+    <div class="bg-white w-full max-w-xl rounded-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-100">
+      
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center">
+            <i data-lucide="file-text" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 id="modal-article-editor-title" data-i18n="article.title" class="font-extrabold text-sm text-slate-900">Tulis Artikel Edukasi Baru</h3>
+            <p class="text-[11px] text-slate-400">Publikasi materi bimbingan konseling untuk siswa</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeArticleEditor()" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-article-editor" onsubmit="event.preventDefault(); saveArticleFromCms();" class="p-6 overflow-y-auto space-y-4">
+        <input type="hidden" id="input-article-id" value="">
+
+        <div>
+          <label class="text-xs font-bold text-slate-700 block mb-1">Judul Artikel: <span class="text-rose-500">*</span></label>
+          <input type="text" id="input-article-title" placeholder="Misal: Teknik Pernapasan Meredakan Panik" class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium" required>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="text-xs font-bold text-slate-700 block mb-1">Kategori: <span class="text-rose-500">*</span></label>
+            <select id="input-article-category" class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium">
+              <option value="Manajemen Stres">Manajemen Stres</option>
+              <option value="Hubungan Teman">Hubungan Teman</option>
+              <option value="Pola Tidur">Pola Tidur</option>
+              <option value="Regulasi Diri">Regulasi Diri</option>
+              <option value="Akademik & Burnout">Akademik & Burnout</option>
+              <option value="Umum">Umum</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-bold text-slate-700 block mb-1">Status Publikasi:</label>
+            <select id="input-article-status" class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium">
+              <option value="PUBLISHED">PUBLISHED (Aktif Siswa)</option>
+              <option value="DRAFT">DRAFT (Disimpan Internal)</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-bold text-slate-700 block mb-1">URL Cover Gambar (Opsional):</label>
+            <input type="url" id="input-article-cover" placeholder="https://images.unsplash.com/..." class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium">
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-700 block mb-1">Ringkasan Singkat (Preview): <span class="text-rose-500">*</span></label>
+          <textarea id="input-article-summary" rows="2" placeholder="Ringkasan 1-2 kalimat untuk ditampilkan di kartu depan..." class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium leading-relaxed" required></textarea>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-bold text-slate-700">Isi Konten Lengkap: <span class="text-rose-500">*</span></label>
+            <span class="text-[10px] text-slate-400">Gunakan '## ' untuk subjudul, '- ' untuk daftar poin</span>
+          </div>
+          <textarea id="input-article-content" rows="7" placeholder="Tuliskan isi panduan selengkapnya di sini...&#10;&#10;## Langkah Praktis&#10;- Langkah 1...&#10;- Langkah 2..." class="w-full p-3 text-xs sm:text-sm rounded-2xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium leading-relaxed font-mono text-[12px]" required></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeArticleEditor()" data-i18n="btn.cancel" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition">
+            Batal
+          </button>
+          <button type="submit" id="btn-save-article" class="bg-teal-600 hover:bg-teal-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md shadow-teal-600/20 transition flex items-center gap-1.5">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span data-i18n="article.publish">Publikasikan Artikel</span>
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- MODAL CMS EDITOR SURVEI (GURU BK / ADMIN) -->
+  <div id="modal-survey-editor" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+    <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-100">
+      
+      <!-- Top Bar -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+            <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 id="modal-survey-editor-title" data-i18n="survey.editor_title" class="font-extrabold text-sm text-slate-900">Buat Kuesioner Survei Baru</h3>
+            <p class="text-[10px] text-slate-500">Kelola judul, deskripsi, kategori, dan daftar butir pertanyaan biner (YES/NO)</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeSurveyEditor()" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Scrollable Form Body -->
+      <div class="p-6 overflow-y-auto space-y-5 flex-1">
+        <form id="form-survey-editor" onsubmit="event.preventDefault(); submitSurveyEditor();" class="space-y-5">
+          <input type="hidden" id="survey-editor-id" value="">
+          
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div class="sm:col-span-2 space-y-1">
+              <label class="text-xs font-bold text-slate-700 block">Judul Survei: <span class="text-rose-500">*</span></label>
+              <input type="text" id="survey-editor-title-input" placeholder="Misal: Survey Minat dan Bakat Siswa" class="w-full p-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50 font-medium" required>
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-slate-700 block">Status Publikasi:</label>
+              <select id="survey-editor-status" class="w-full p-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50 font-medium">
+                <option value="PUBLISHED">PUBLISHED (Aktif Siswa)</option>
+                <option value="DRAFT">DRAFT (Disimpan Internal)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-700 block">Deskripsi Survei:</label>
+            <input type="text" id="survey-editor-desc-input" placeholder="Tujuan atau panduan singkat pengisian survei..." class="w-full p-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50 font-medium">
+          </div>
+
+          <!-- Quick Template Selector -->
+          <div class="bg-gradient-to-r from-purple-50 via-indigo-50 to-pink-50 border border-purple-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span class="text-xs font-bold text-purple-950 block">✨ Template Kuesioner Cepat:</span>
+              <span class="text-[11px] text-purple-700">Muat 8 kategori minat dan bakat lengkap dengan 40 butir pertanyaan YES/NO</span>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+              <button type="button" id="btn-load-template-minat-bakat" onclick="loadSurveyTemplate('MINAT_BAKAT')" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-xs">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                <span>Muat Template Minat & Bakat (40 Soal)</span>
+              </button>
+              <button type="button" onclick="clearSurveyQuestions()" class="bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 transition">
+                Kosongkan
+              </button>
+            </div>
+          </div>
+
+          <!-- Questions Container -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div class="flex items-center gap-2">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800">Daftar Pertanyaan Biner</h4>
+                <span id="survey-question-count-badge" class="bg-purple-100 text-purple-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full"><span id="survey-question-count">0</span> Butir</span>
+              </div>
+              <button type="button" id="btn-add-survey-q" onclick="addSurveyQuestionItem()" class="text-xs text-purple-700 hover:text-purple-800 font-bold flex items-center gap-1 hover:underline">
+                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                <span>+ Tambah Butir Soal</span>
+              </button>
+            </div>
+
+            <div id="survey-questions-container" class="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
+              <!-- Dynamically rendered question rows -->
+            </div>
+          </div>
+
+          <!-- Action Footer -->
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <button type="button" onclick="closeSurveyEditor()" data-i18n="btn.cancel" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition">
+              Batal
+            </button>
+            <button type="submit" id="btn-save-survey-editor" class="bg-purple-600 hover:bg-purple-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm shadow-md transition flex items-center gap-1.5">
+              <i data-lucide="save" class="w-4 h-4"></i>
+              <span data-i18n="survey.save">Simpan Kuesioner Survei</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL ADMIN TAMBAH GURU BK (KHUSUS ADMIN) -->
+  <div id="admin-counselor-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
+            <i data-lucide="user-plus" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 data-i18n="admin.counselor_title" class="font-extrabold text-sm text-slate-900">Tambah Guru BK Baru</h3>
+            <p class="text-[11px] text-indigo-600 font-medium">Khusus Otoritas Admin Sekolah</p>
+          </div>
+        </div>
+        <button onclick="closeAdminCounselorModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-2.5 bg-indigo-50/70 border border-indigo-200/60 rounded-2xl text-[10px] text-indigo-900 leading-relaxed">
+        Hanya Admin yang dapat menambahkan akun Guru BK. Guru BK yang didaftarkan akan otomatis mendapatkan hak akses Dashboard Konseling dan tercatat di sheet <strong>Users</strong> dan <strong>Counselors</strong>.
+      </div>
+
+      <form onsubmit="event.preventDefault(); handleAdminAddCounselor();" class="space-y-3">
+        <div>
+          <label class="text-[10px] font-bold text-slate-700">Email Google Guru BK:</label>
+          <input type="email" id="admin-new-counselor-email" placeholder="guru.bk@gmail.com atau @sekolah.sch.id" class="w-full mt-1 p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-indigo-600 bg-slate-50 font-medium" required>
+        </div>
+
+        <div>
+          <label class="text-[10px] font-bold text-slate-700">Nama Lengkap & Gelar:</label>
+          <input type="text" id="admin-new-counselor-name" placeholder="contoh: Ibu Rahayu, S.Psi" class="w-full mt-1 p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-indigo-600 bg-slate-50 font-medium" required>
+        </div>
+
+        <div>
+          <label class="text-[10px] font-bold text-slate-700">Jabatan / Satuan Pendidikan:</label>
+          <input type="text" id="admin-new-counselor-title" placeholder="contoh: Guru BK SMA / Konselor SMP" class="w-full mt-1 p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-indigo-600 bg-slate-50 font-medium">
+        </div>
+
+        <button type="submit" id="btn-submit-admin-counselor" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5 mt-2">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span data-i18n="admin.counselor_submit">Daftarkan Guru BK ke Spreadsheet</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- IN-APP PRIVATE CHAT MODAL -->
+  <div id="chat-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 hidden">
+    <div class="bg-white w-full max-w-md h-[500px] rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col justify-between overflow-hidden">
+      <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-xs">BK</div>
+          <div>
+            <h3 id="chat-target-name" class="font-bold text-xs text-slate-900">Konseling</h3>
+            <p class="text-[10px] text-teal-600 font-medium">Ruang Percakapan Tertutup</p>
+          </div>
+        </div>
+        <button onclick="closeChatModal()" class="text-slate-400 hover:text-slate-700 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="chat-messages-container" class="p-4 flex-1 overflow-y-auto space-y-2 text-xs">
+        <div class="text-center text-[10px] text-slate-400">Pesan Anda dienkripsi dan hanya terbaca oleh Anda dan Guru BK.</div>
+      </div>
+
+      <form onsubmit="event.preventDefault(); sendChatMessage();" class="p-3 border-t border-slate-100 flex gap-2 bg-white">
+        <input type="text" id="chat-input-text" placeholder="Ketik pesan konsultasi Anda..." class="flex-1 p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-teal-600 bg-slate-50 font-medium" required>
+        <button type="submit" id="btn-send-chat" class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center">
+          <i data-lucide="send" class="w-4 h-4"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL KUESIONER SURVEI BINER MULTI-STEP WIZARD -->
+  <div id="modal-survey-wizard" role="dialog" aria-modal="true" aria-labelledby="survey-wizard-title" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6 sm:p-7 space-y-6 flex flex-col justify-between max-h-[90vh] overflow-y-auto">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
+            <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 id="survey-wizard-title" data-i18n="survey.wizard_title" class="font-extrabold text-sm sm:text-base text-slate-900">Kuesioner Survei Siswa</h3>
+            <p class="text-[11px] text-slate-500 font-medium">Jawab dengan jujur sesuai pengalamanmu</p>
+          </div>
+        </div>
+        <button id="btn-close-survey-wizard" onclick="closeSurveyWizard()" aria-label="Tutup kuesioner" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Progress Section -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between text-xs font-semibold text-slate-600">
+          <span id="survey-wizard-progress">Pertanyaan 1 dari 15 • 7%</span>
+          <span id="survey-wizard-category" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+            Care Core
+          </span>
+        </div>
+        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+          <div id="survey-wizard-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="7" class="bg-gradient-to-r from-indigo-500 to-teal-500 h-full rounded-full transition-all duration-300" style="width: 7%;"></div>
+        </div>
+      </div>
+
+      <!-- Question Box -->
+      <div class="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-6 min-h-[120px] flex items-center justify-center text-center">
+        <p id="survey-wizard-question" class="text-base sm:text-lg font-bold text-slate-800 leading-relaxed"></p>
+      </div>
+
+      <!-- Dynamic Multi-Type Input Area (Binary / Multiple Choice / Checkboxes / Linear Scale / Short Answer) -->
+      <div id="survey-wizard-input-area" class="space-y-3">
+        <div class="grid grid-cols-2 gap-4">
+          <button type="button" id="btn-wizard-yes" onclick="selectWizardAnswer('YA', true)" aria-pressed="false" class="wizard-choice-btn p-4 sm:p-5 rounded-2xl border-2 border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-400 text-slate-700 font-extrabold text-sm sm:text-base flex flex-col items-center justify-center gap-1.5 transition-all duration-150">
+            <span class="text-2xl sm:text-3xl">👍</span>
+            <span>YA / YES</span>
+          </button>
+          <button type="button" id="btn-wizard-no" onclick="selectWizardAnswer('TIDAK', true)" aria-pressed="false" class="wizard-choice-btn p-4 sm:p-5 rounded-2xl border-2 border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-400 text-slate-700 font-extrabold text-sm sm:text-base flex flex-col items-center justify-center gap-1.5 transition-all duration-150">
+            <span class="text-2xl sm:text-3xl">👎</span>
+            <span>TIDAK / NO</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Footer -->
+      <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+        <button type="button" id="btn-wizard-prev" onclick="prevWizardStep()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition flex items-center gap-1.5">
+          <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          <span data-i18n="btn.prev">Sebelumnya</span>
+        </button>
+        
+        <div class="flex items-center gap-2">
+          <button type="button" id="btn-wizard-next" onclick="nextWizardStep()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition flex items-center gap-1.5">
+            <span data-i18n="btn.next">Selanjutnya</span>
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+          <button type="button" id="btn-wizard-submit" onclick="submitSurveyAnswers()" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition flex items-center gap-1.5">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span data-i18n="survey.submit">Kirim Kuesioner</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL KONFIRMASI SELESAI SURVEI -->
+  <div id="modal-survey-complete" role="dialog" aria-modal="true" aria-labelledby="survey-complete-title" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-5 text-center max-h-[90vh] flex flex-col">
+      <div class="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl mx-auto shadow-inner shrink-0">
+        🎉
+      </div>
+      <div class="shrink-0">
+        <h3 id="survey-complete-title" data-i18n="survey.complete_title" class="text-lg sm:text-xl font-extrabold text-slate-900">Kuesioner Berhasil Disimpan 🎉</h3>
+        <p class="text-xs sm:text-sm text-slate-500 mt-1">Terima kasih atas partisipasimu. Berikut ringkasan persentase skormu per kategori:</p>
+      </div>
+
+      <!-- Category scores container -->
+      <div id="survey-complete-scores" class="space-y-2.5 text-left py-2 overflow-y-auto max-h-[45vh] pr-1">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="space-y-2 shrink-0">
+        <button id="btn-view-detailed-survey-report" onclick="closeSurveyCompleteModal(); switchTab('survey');" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2.5 rounded-2xl text-xs sm:text-sm border border-indigo-200 transition flex items-center justify-center gap-1.5">
+          <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
+          <span>Lihat Laporan Lengkap di Tab Survei</span>
+        </button>
+        <button id="btn-close-survey-complete" onclick="closeSurveyCompleteModal()" aria-label="Tutup kuesioner" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-2xl text-xs sm:text-sm shadow-md transition">
+          <span data-i18n="btn.done_close">Selesai & Tutup</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DETAIL MOOD & CATATAN (STUDENT & COUNSELOR) -->
+  <div id="modal-mood-detail" role="dialog" aria-modal="true" aria-labelledby="modal-mood-title" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-start justify-between pb-3 border-b border-slate-100 shrink-0">
+        <div class="flex items-center gap-3">
+          <div id="modal-mood-emoji" class="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-2xl shadow-sm">
+            😊
+          </div>
+          <div>
+            <h3 id="modal-mood-title" class="text-base font-extrabold text-slate-900 leading-snug">Senang</h3>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span id="modal-mood-date" class="text-[11px] text-slate-400 font-medium">Hari ini</span>
+              <span class="text-slate-200">•</span>
+              <span id="modal-mood-score" class="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">Skor: - / 5</span>
+            </div>
+          </div>
+        </div>
+        <button type="button" onclick="closeMoodDetailModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition shrink-0">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-4 pr-1">
+        <!-- Triggers Section -->
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Faktor Pemicu (Triggers)</label>
+          <div id="modal-mood-triggers" class="flex flex-wrap gap-1.5">
+            <span class="text-xs text-slate-400 italic">Tidak ada pemicu tercatat</span>
+          </div>
+        </div>
+
+        <!-- Remarks / Notes Section -->
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Catatan / Remarks</label>
+          <div class="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl">
+            <p id="modal-mood-notes" class="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-normal">
+              Tidak ada catatan tambahan.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex justify-end shrink-0">
+        <button type="button" onclick="closeMoodDetailModal()" data-i18n="btn.close" class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
