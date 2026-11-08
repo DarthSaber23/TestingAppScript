@@ -1,0 +1,1437 @@
+<script>
+    // =========================================================================
+    // MANUAL SURVEY CREATOR / CMS CONTROLLERS (GURU BK / ADMIN)
+    // =========================================================================
+    function openSurveyEditor(surveyId) {
+      const form = document.getElementById('form-survey-editor');
+      const titleModal = document.getElementById('modal-survey-editor-title');
+      if (form) form.reset();
+
+      const container = document.getElementById('survey-questions-container');
+      if (container) container.innerHTML = '';
+
+      if (surveyId && cachedSurveysList) {
+        const found = cachedSurveysList.find(s => s.id === surveyId);
+        if (found) {
+          if (titleModal) titleModal.innerText = 'Edit Kuesioner Survei';
+          document.getElementById('survey-editor-id').value = found.id || '';
+          document.getElementById('survey-editor-title-input').value = found.title || '';
+          document.getElementById('survey-editor-desc-input').value = found.description || '';
+          document.getElementById('survey-editor-status').value = found.status || 'PUBLISHED';
+
+          if (found.questions && found.questions.length > 0) {
+            found.questions.forEach(q => addSurveyQuestionItem({
+              category: q.category,
+              text: q.question_text,
+              type: q.question_type || 'BINARY_YES_NO',
+              options: q.options || []
+            }));
+          } else {
+            addSurveyQuestionItem();
+          }
+        } else {
+          addSurveyQuestionItem();
+        }
+      } else {
+        if (titleModal) titleModal.innerText = 'Buat Kuesioner Survei Baru';
+        document.getElementById('survey-editor-id').value = '';
+        document.getElementById('survey-editor-title-input').value = '';
+        document.getElementById('survey-editor-desc-input').value = '';
+        document.getElementById('survey-editor-status').value = 'PUBLISHED';
+        addSurveyQuestionItem();
+      }
+
+      updateSurveyQuestionCount();
+      const modal = document.getElementById('modal-survey-editor');
+      if (modal) modal.classList.remove('hidden');
+      initIcons();
+    }
+
+    function closeSurveyEditor() {
+      const modal = document.getElementById('modal-survey-editor');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function loadSurveyTemplate(type) {
+      if (type === 'MINAT_BAKAT') {
+        document.getElementById('survey-editor-title-input').value = 'Survey Minat dan Bakat (Jawaban YES/NO)';
+        document.getElementById('survey-editor-desc-input').value = 'Survey pemetaan 8 kategori minat dan bakat dengan 40 butir pertanyaan biner (YES/NO).';
+        document.getElementById('survey-editor-status').value = 'PUBLISHED';
+
+        const container = document.getElementById('survey-questions-container');
+        if (container) {
+          container.innerHTML = '';
+          SURVEY_MINAT_BAKAT_QUESTIONS.forEach(item => addSurveyQuestionItem(item));
+        }
+        showToast('Template 8 Kategori (40 Soal) berhasil dimuat! ✨', '✅');
+      }
+    }
+
+    function clearSurveyQuestions() {
+      const container = document.getElementById('survey-questions-container');
+      if (container) container.innerHTML = '';
+      updateSurveyQuestionCount();
+    }
+
+    function updateSurveyQuestionCount() {
+      const container = document.getElementById('survey-questions-container');
+      const count = container ? container.querySelectorAll('.survey-question-row').length : 0;
+      const countEl = document.getElementById('survey-question-count');
+      if (countEl) countEl.innerText = count;
+    }
+
+    function onSurveyQuestionTypeChange(selectEl) {
+      const row = selectEl ? selectEl.closest('.survey-question-row') : null;
+      if (!row) return;
+      const optWrapper = row.querySelector('.q-options-wrapper');
+      if (!optWrapper) return;
+      const qType = (selectEl.value || 'BINARY_YES_NO').toUpperCase();
+      if (qType === 'MULTIPLE_CHOICE' || qType === 'CHECKBOXES') {
+        optWrapper.classList.remove('hidden');
+      } else {
+        optWrapper.classList.add('hidden');
+      }
+    }
+
+    function addSurveyQuestionItem(data) {
+      const container = document.getElementById('survey-questions-container');
+      if (!container) return;
+
+      const currentRows = container.querySelectorAll('.survey-question-row');
+      const nextIdx = currentRows.length + 1;
+      const selectedCat = (data && data.category) ? data.category : (SURVEY_CATEGORY_PRESETS[(nextIdx - 1) % SURVEY_CATEGORY_PRESETS.length] || 'Business Boost');
+      const qText = (data && (data.text || data.question_text)) ? (data.text || data.question_text) : '';
+      const qType = (data && (data.type || data.question_type)) ? String(data.type || data.question_type).toUpperCase() : 'BINARY_YES_NO';
+      const rawOptions = (data && data.options) ? data.options : [];
+      const optionsStr = Array.isArray(rawOptions) ? rawOptions.join(', ') : String(rawOptions || '');
+      const showOptions = (qType === 'MULTIPLE_CHOICE' || qType === 'CHECKBOXES');
+
+      const questionTypes = [
+        { val: 'BINARY_YES_NO', label: 'Ya / Tidak (Binary)' },
+        { val: 'MULTIPLE_CHOICE', label: 'Pilihan Ganda (Multiple Choice)' },
+        { val: 'CHECKBOXES', label: 'Kotak Centang (Checkboxes)' },
+        { val: 'LINEAR_SCALE', label: 'Skala Linear (1–5)' },
+        { val: 'SHORT_ANSWER', label: 'Jawaban Singkat (Short Answer)' }
+      ];
+
+      const row = document.createElement('div');
+      row.className = 'survey-question-row p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2';
+      row.innerHTML = `
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-bold text-slate-500 q-number">#${nextIdx}</span>
+            <select class="q-category bg-white text-slate-800 text-xs font-bold px-2.5 py-1.5 rounded-xl border border-slate-200 focus:outline-none">
+              ${SURVEY_CATEGORY_PRESETS.map(cat => `<option value="${escapeHtml(cat)}" ${cat === selectedCat ? 'selected' : ''}>${escapeHtml(cat)}</option>`).join('')}
+            </select>
+            <select onchange="onSurveyQuestionTypeChange(this)" class="q-type bg-purple-50 text-purple-800 text-xs font-bold px-2.5 py-1.5 rounded-xl border border-purple-200 focus:outline-none">
+              ${questionTypes.map(qt => `<option value="${qt.val}" ${qt.val === qType ? 'selected' : ''}>${qt.label}</option>`).join('')}
+            </select>
+          </div>
+          <button type="button" onclick="removeSurveyQuestionItem(this)" class="text-rose-500 hover:text-rose-700 p-1 rounded-lg hover:bg-rose-50 transition" title="Hapus soal">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+        <div>
+          <input type="text" class="q-text w-full p-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white font-medium" placeholder="Tuliskan pertanyaan (misal: Do you enjoy...) *" value="${escapeHtml(qText)}" required>
+        </div>
+        <div class="q-options-wrapper ${showOptions ? '' : 'hidden'} pt-1">
+          <label class="text-[10px] font-bold text-purple-700 block mb-1">Pilihan Jawaban (pisahkan dengan koma):</label>
+          <input type="text" class="q-options w-full p-2 text-xs rounded-xl border border-purple-200 bg-white font-medium" placeholder="Misal: Sangat Setuju, Setuju, Kurang Setuju, Tidak Setuju" value="${escapeHtml(optionsStr)}">
+        </div>
+      `;
+      container.appendChild(row);
+      updateSurveyQuestionCount();
+      initIcons();
+    }
+
+    function removeSurveyQuestionItem(btn) {
+      const row = btn.closest('.survey-question-row');
+      if (row) {
+        row.remove();
+        // Re-number
+        const container = document.getElementById('survey-questions-container');
+        if (container) {
+          const rows = container.querySelectorAll('.survey-question-row');
+          rows.forEach((r, i) => {
+            const numSpan = r.querySelector('.q-number');
+            if (numSpan) numSpan.innerText = `#${i + 1}`;
+          });
+        }
+        updateSurveyQuestionCount();
+      }
+    }
+
+    let isSavingSurveyEditor = false;
+    const inFlightSurveyIds = new Set();
+    let isSavingArticle = false;
+    const inFlightArticleIds = new Set();
+
+    async function submitSurveyEditor() {
+      if (isSavingSurveyEditor) return;
+      const idVal = (document.getElementById('survey-editor-id').value || '').trim();
+      const titleVal = (document.getElementById('survey-editor-title-input').value || '').trim();
+      const descVal = (document.getElementById('survey-editor-desc-input').value || '').trim();
+      const statusVal = (document.getElementById('survey-editor-status').value || 'PUBLISHED').trim().toUpperCase();
+
+      if (!titleVal) {
+        showToast('Judul survei wajib diisi', '⚠️');
+        return;
+      }
+
+      const container = document.getElementById('survey-questions-container');
+      const rows = container ? container.querySelectorAll('.survey-question-row') : [];
+      if (rows.length === 0) {
+        showToast('Harap tambahkan minimal 1 butir pertanyaan', '⚠️');
+        return;
+      }
+
+      const questions = [];
+      let hasEmptyText = false;
+      rows.forEach((r, idx) => {
+        const cat = (r.querySelector('.q-category').value || 'General').trim();
+        const text = (r.querySelector('.q-text').value || '').trim();
+        const typeEl = r.querySelector('.q-type');
+        const qType = typeEl ? (typeEl.value || 'BINARY_YES_NO').trim().toUpperCase() : 'BINARY_YES_NO';
+        const optEl = r.querySelector('.q-options');
+        let options = [];
+        if (qType === 'MULTIPLE_CHOICE' || qType === 'CHECKBOXES') {
+          const rawOpt = optEl ? optEl.value : '';
+          options = rawOpt.split(',').map(s => s.trim()).filter(Boolean);
+          if (options.length === 0) {
+            options = ['Opsi 1', 'Opsi 2'];
+          }
+        }
+        if (!text) hasEmptyText = true;
+        questions.push({
+          category: cat,
+          question_text: text,
+          question_type: qType,
+          options: options,
+          order_num: idx + 1
+        });
+      });
+
+      if (hasEmptyText) {
+        showToast('Semua butir pertanyaan wajib diisi teksnya', '⚠️');
+        return;
+      }
+
+      isSavingSurveyEditor = true;
+      const submitBtn = document.getElementById('btn-save-survey-editor');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `
+          <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+          <span>Menyimpan Survei...</span>
+        `;
+        initIcons();
+      }
+
+      const payload = {
+        title: titleVal,
+        description: descVal,
+        status: statusVal,
+        questions: questions
+      };
+      if (idVal) payload.id = idVal;
+
+      try {
+        const res = await callServer('saveSurvey', [payload]);
+        if (res && res.success) {
+          showToast(`Kuesioner "${titleVal}" berhasil disimpan!`, '✅');
+          closeSurveyEditor();
+          await loadCounselorSurveys();
+          await loadActiveSurvey();
+        } else {
+          showToast(res && res.error ? res.error : 'Gagal menyimpan survei', '❌');
+        }
+      } catch (err) {
+        console.error('Error saving survey:', err);
+        showToast(err.message || 'Gagal menyimpan survei', '❌');
+      } finally {
+        isSavingSurveyEditor = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          const saveLabel = typeof t === 'function' ? t('survey.save') : 'Simpan Kuesioner Survei';
+          submitBtn.innerHTML = `
+            <i data-lucide="save" class="w-4 h-4"></i>
+            <span data-i18n="survey.save">${escapeHtml(saveLabel)}</span>
+          `;
+          initIcons();
+        }
+      }
+    }
+
+
+    // =========================================================================
+    // COUNSELOR DASHBOARD & TRIAGE EARLY WARNING
+    // =========================================================================
+    async function loadCounselorDashboard() {
+      try {
+        const res = await callServer('getCounselorDashboard', []);
+        const data = res.data || res;
+        
+        document.getElementById('metric-checkins').innerText = data.metrics.todayCheckins;
+        document.getElementById('metric-reports').innerText = data.metrics.newReports;
+        document.getElementById('metric-appointments').innerText = data.metrics.pendingAppointments;
+
+        const triageContainer = document.getElementById('triage-cards-list');
+        const alertsCount = data.triageAlerts.flaggedStudents.length + data.triageAlerts.highRiskReports.length;
+        document.getElementById('triage-badge-count').innerText = alertsCount + (typeof currentLang !== 'undefined' && currentLang === 'en' ? ' Need Attention' : ' Butuh Perhatian');
+
+        let alertHtml = '';
+        (data.triageAlerts?.flaggedStudents || []).forEach(st => {
+          alertHtml += `
+            <div class="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-2 triage-card">
+              <div class="flex justify-between items-center">
+                <span class="text-xs font-bold text-amber-950">${escapeHtml(st.email)}</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 bg-amber-200 text-amber-900 rounded-lg">Stres 3x Beruntun</span>
+              </div>
+              <p class="text-xs text-amber-900 leading-relaxed">${escapeHtml(st.reason)}</p>
+              <button onclick="openChatModal('${escapeHtml(st.email)}', '${escapeHtml(st.email)}')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm transition">Kirim Sapaan Konseling</button>
+            </div>
+          `;
+        });
+
+        (data.triageAlerts?.highRiskReports || []).forEach(rp => {
+          alertHtml += `
+            <div class="p-4 bg-rose-50 border border-rose-200 rounded-2xl space-y-2 triage-card">
+              <div class="flex justify-between items-center">
+                <span class="text-xs font-bold text-rose-950">Aduan Krisis: ${escapeHtml(rp.id)}</span>
+                <span class="text-[10px] font-bold px-2.5 py-0.5 bg-rose-200 text-rose-900 rounded-lg">High Risk</span>
+              </div>
+              <p class="text-xs text-rose-900 leading-relaxed">${escapeHtml(rp.detail)}</p>
+            </div>
+          `;
+        });
+
+        if (alertHtml) {
+          triageContainer.innerHTML = alertHtml;
+        } else {
+          triageContainer.innerHTML = `
+            <div class="p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-1">
+              <span class="text-2xl block mb-1">✨</span>
+              <p class="text-xs font-bold text-slate-700">Kondisi Siswa Terpantau Stabil</p>
+              <p class="text-[11px] text-slate-500">Tidak ada indikasi krisis atau stres beruntun dalam 7 hari terakhir.</p>
+            </div>
+          `;
+        }
+
+        const reportsContainer = document.getElementById('counselor-reports-list');
+        reportsContainer.innerHTML = (data.reports || []).map(r => `
+          <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-2 report-item hover:border-slate-300 transition">
+            <div class="flex justify-between font-bold">
+              <span class="text-slate-900 font-extrabold">${escapeHtml(r.reporter_email)} (${escapeHtml(r.role_type)})</span>
+              <span class="text-[10px] px-2.5 py-0.5 rounded-md ${r.status === 'BARU' ? 'bg-rose-100 text-rose-700 font-bold' : 'bg-teal-100 text-teal-800 font-bold'}">${escapeHtml(r.status)}</span>
+            </div>
+            <p class="text-slate-700 leading-relaxed">${escapeHtml(r.detail)}</p>
+            <div class="flex gap-2 pt-1">
+              <button onclick="updateReportStatus('${escapeHtml(r.id)}', 'DALAM_TINJAUAN')" class="bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold px-3 py-1.5 rounded-xl transition">Tinjau</button>
+              <button onclick="updateReportStatus('${escapeHtml(r.id)}', 'SELESAI')" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm transition">Selesai</button>
+            </div>
+          </div>
+        `).join('');
+
+        const aptsContainer = document.getElementById('counselor-appointments-list');
+        if (!data.appointments || data.appointments.length === 0) {
+          aptsContainer.innerHTML = '<p class="text-slate-400 text-xs italic">Belum ada pengajuan janji temu.</p>';
+        } else {
+          aptsContainer.innerHTML = (data.appointments || []).map(a => {
+            let formattedDate = a.target_date || 'Hari ini';
+            try {
+              const d = new Date(a.target_date);
+              if (!isNaN(d.getTime())) {
+                formattedDate = d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+              }
+            } catch(e) {}
+
+            const isPending = a.status === 'MENUNGGU';
+            const isApproved = a.status === 'DISETUJUI';
+
+            let statusBadge = '';
+            if (isPending) {
+              statusBadge = '<span class="text-[10px] px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold">MENUNGGU</span>';
+            } else if (isApproved) {
+              statusBadge = '<span class="text-[10px] px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold">DISETUJUI (Google Calendar)</span>';
+            } else {
+              statusBadge = `<span class="text-[10px] px-2.5 py-0.5 rounded-md bg-slate-200 text-slate-700 font-bold">${escapeHtml(a.status || '')}</span>`;
+            }
+
+            return `
+              <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-2 apt-item hover:border-slate-300 transition">
+                <div class="flex justify-between items-center font-bold">
+                  <span class="text-slate-900 font-extrabold">${escapeHtml(a.student_email || '')}</span>
+                  ${statusBadge}
+                </div>
+                <p class="text-slate-700">📅 <strong>${formattedDate}</strong> | ⏰ ${escapeHtml(a.time_slot || '')} | Topik: <span class="font-medium text-slate-900">${escapeHtml(a.topic || '')}</span></p>
+                ${isPending ? `
+                  <div class="flex gap-2 pt-1">
+                    <button onclick="approveAppointment('${escapeHtml(a.id)}')" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-sm transition">
+                      <i data-lucide="calendar-check" class="w-4 h-4"></i>
+                      <span>Setujui & Buat di Google Calendar</span>
+                    </button>
+                    <button onclick="rejectAppointment('${escapeHtml(a.id)}')" class="bg-slate-200 hover:bg-rose-100 hover:text-rose-700 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-xl transition">
+                      <span>Tolak</span>
+                    </button>
+                  </div>
+                ` : isApproved ? `
+                  <p class="text-xs text-emerald-700 flex items-center gap-1.5 font-semibold pt-1">
+                    <i data-lucide="check" class="w-4 h-4 text-emerald-600"></i>
+                    <span>Tersinkron di Google Calendar Konselor</span>
+                  </p>
+                ` : `
+                  <p class="text-xs text-slate-500 italic pt-1">Janji temu telah ditutup / ditolak.</p>
+                `}
+              </div>
+            `;
+          }).join('');
+        }
+
+        const threadsContainer = document.getElementById('counselor-messages-threads-list');
+        if (threadsContainer) {
+          const myEmail = (currentUser ? currentUser.email : '').toLowerCase().trim();
+          const threadMap = {};
+          (data.messages || []).forEach(m => {
+            const s = (m.sender_email || '').toLowerCase().trim();
+            const r = (m.recipient_email || '').toLowerCase().trim();
+            const peer = (s === myEmail) ? r : s;
+            if (!peer || peer === myEmail) return;
+            const isRead = m.is_read === true || String(m.is_read).toLowerCase() === 'true';
+            if (!threadMap[peer]) {
+              threadMap[peer] = {
+                peerEmail: peer,
+                lastMessage: m.text,
+                timestamp: m.timestamp,
+                hasUnread: false
+              };
+            }
+            if (s === peer && r === myEmail && !isRead) {
+              threadMap[peer].hasUnread = true;
+            }
+          });
+
+          const threads = Object.values(threadMap);
+          if (threads.length === 0) {
+            threadsContainer.innerHTML = '<div class="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-100">Belum ada percakapan dari siswa.</div>';
+          } else {
+            threadsContainer.innerHTML = threads.map(t => {
+              const timeStr = t.timestamp ? new Date(t.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+              return `
+                <div class="p-3 bg-slate-50 hover:bg-teal-50/50 border border-slate-200 hover:border-teal-300 rounded-2xl transition flex items-center justify-between gap-2.5">
+                  <div class="min-w-0 flex-1">
+                    <span class="font-bold text-xs text-slate-900 flex items-center gap-1.5 flex-wrap truncate">
+                      <span>${escapeHtml(t.peerEmail)}</span>
+                      ${t.hasUnread ? '<span class="bg-amber-100 text-amber-800 border border-amber-300 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full select-none">● Pesan Baru</span>' : ''}
+                    </span>
+                    <p class="text-[11px] text-slate-600 truncate mt-0.5">${escapeHtml(t.lastMessage || '(Pesan)')}</p>
+                    <span class="text-[9px] text-slate-400 mt-0.5 block">${escapeHtml(timeStr)}</span>
+                  </div>
+                  <button onclick="openChatModal('${escapeHtml(t.peerEmail)}', '${escapeHtml(t.peerEmail)}')" class="shrink-0 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1">
+                    <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                    <span>Balas</span>
+                  </button>
+                </div>
+              `;
+            }).join('');
+          }
+        }
+
+        loadActiveQuote();
+        loadEducationalArticles();
+        loadStudentDirectory();
+        loadCounselorSurveys();
+        initIcons();
+      } catch (err) {
+        showToast('Gagal memuat dashboard BK: ' + err.message, '❌');
+      }
+    }
+
+    async function loadCounselorSurveys() {
+      const container = document.getElementById('counselor-surveys-list');
+      const badge = document.getElementById('counselor-surveys-count');
+      if (!container) return;
+
+      try {
+        const res = await callServer('getSurveys', []);
+        const surveys = Array.isArray(res) ? res : (res && res.data ? res.data : []);
+        cachedSurveysList = surveys;
+        if (badge) badge.innerText = `${surveys.length} Survei`;
+
+        if (surveys.length === 0) {
+          container.innerHTML = `
+            <div class="col-span-full p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              <span class="text-2xl block mb-1">📋</span>
+              <p class="text-xs font-semibold">Belum ada kuesioner survei dibuat.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = surveys.map(s => {
+          const qCount = Array.isArray(s.questions) ? s.questions.length : 0;
+          const isPub = s.status === 'PUBLISHED';
+          const safeId = escapeHtml(s.id);
+          return `
+            <div class="survey-cms-card p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 hover:border-purple-300 transition flex flex-col justify-between" data-survey-id="${safeId}">
+              <div class="space-y-1.5">
+                <div class="flex items-start justify-between gap-2">
+                  <h4 class="text-xs font-bold text-slate-900 leading-snug">${escapeHtml(s.title)}</h4>
+                  <span class="survey-status-badge text-[10px] font-extrabold px-2 py-0.5 rounded-full ${isPub ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}">${escapeHtml(s.status)}</span>
+                </div>
+                <p class="text-[11px] text-slate-500 line-clamp-2">${escapeHtml(s.description || 'Tidak ada deskripsi.')}</p>
+              </div>
+              <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs flex-wrap gap-2">
+                <span class="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">${qCount} Pertanyaan</span>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="openSurveyEditor('${safeId}')" class="btn-edit-survey px-2 py-1 bg-white border border-slate-200 hover:border-purple-400 text-purple-700 font-bold text-[10px] rounded-lg transition cursor-pointer">Edit Survei</button>
+                  <button type="button" onclick="toggleSurveyStatus('${safeId}')" class="btn-toggle-survey px-2 py-1 ${isPub ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100' : 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'} border font-bold text-[10px] rounded-lg transition cursor-pointer">${isPub ? 'Nonaktifkan' : 'Aktifkan'}</button>
+                  <button type="button" onclick="deleteSurveyFromCms('${safeId}')" class="btn-delete-survey px-2 py-1 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 font-bold text-[10px] rounded-lg transition cursor-pointer">Hapus</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('loadCounselorSurveys error:', err);
+      }
+    }
+
+    async function toggleSurveyStatus(surveyId) {
+      if (!surveyId || inFlightSurveyIds.has(surveyId)) return;
+      const found = (cachedSurveysList || []).find(s => s.id === surveyId);
+      if (!found) return;
+      inFlightSurveyIds.add(surveyId);
+      const nextStatus = (found.status === 'PUBLISHED') ? 'DRAFT' : 'PUBLISHED';
+      try {
+        const payload = {
+          id: found.id,
+          title: found.title,
+          description: found.description,
+          status: nextStatus,
+          questions: (found.questions || []).map((q, idx) => ({
+            category: q.category || 'General',
+            question_text: q.question_text || '',
+            question_type: q.question_type || 'BINARY_YES_NO',
+            options: q.options || [],
+            order_num: q.order_num || (idx + 1)
+          }))
+        };
+        const res = await callServer('saveSurvey', [payload]);
+        if (res && res.success) {
+          showToast(`Status survei diubah ke ${nextStatus}`, '✅');
+          await loadCounselorSurveys();
+          await loadActiveSurvey();
+        }
+      } catch (err) {
+        showToast('Gagal mengubah status survei: ' + err.message, '❌');
+      } finally {
+        inFlightSurveyIds.delete(surveyId);
+      }
+    }
+
+    async function deleteSurveyFromCms(surveyId) {
+      if (!surveyId || inFlightSurveyIds.has(surveyId)) return;
+      inFlightSurveyIds.add(surveyId);
+      try {
+        const res = await callServer('deleteSurvey', [surveyId]);
+        if (res && res.success) {
+          showToast('Survei berhasil dihapus', '🗑️');
+          await loadCounselorSurveys();
+          await loadActiveSurvey();
+        }
+      } catch (err) {
+        showToast('Gagal menghapus survei: ' + err.message, '❌');
+      } finally {
+        inFlightSurveyIds.delete(surveyId);
+      }
+    }
+
+    const inFlightAppointmentIds = new Set();
+    const inFlightReportIds = new Set();
+
+    async function updateReportStatus(reportId, status) {
+      if (inFlightReportIds.has(reportId)) return;
+      inFlightReportIds.add(reportId);
+      try {
+        await callServer('updateReportStatus', [{ reportId, status, notes: 'Ditinjau oleh Guru BK' }]);
+        showToast('Status aduan diperbarui', '✅');
+        await loadCounselorDashboard();
+      } catch (e) {
+        showToast(e.message, '❌');
+      } finally {
+        inFlightReportIds.delete(reportId);
+      }
+    }
+
+    async function approveAppointment(appointmentId) {
+      if (inFlightAppointmentIds.has(appointmentId)) return;
+      inFlightAppointmentIds.add(appointmentId);
+      try {
+        await callServer('updateAppointment', [{ appointmentId, status: 'DISETUJUI' }]);
+        showToast('Janji temu telah disetujui & otomatis terjadwal di Google Calendar! 📅', '✅');
+        await loadCounselorDashboard();
+      } catch (e) {
+        showToast(e.message, '❌');
+      } finally {
+        inFlightAppointmentIds.delete(appointmentId);
+      }
+    }
+
+    async function rejectAppointment(appointmentId) {
+      if (inFlightAppointmentIds.has(appointmentId)) return;
+      if (!confirm('Apakah Anda yakin ingin menolak pengajuan janji temu ini?')) return;
+      inFlightAppointmentIds.add(appointmentId);
+      try {
+        await callServer('updateAppointment', [{ appointmentId, status: 'DITOLAK' }]);
+        showToast('Janji temu telah ditolak.', 'ℹ️');
+        await loadCounselorDashboard();
+      } catch (e) {
+        showToast(e.message, '❌');
+      } finally {
+        inFlightAppointmentIds.delete(appointmentId);
+      }
+    }
+
+    // =========================================================================
+    // COUNSELOR STUDENT DIRECTORY & HOLISTIC DOSSIER
+    // =========================================================================
+    let studentDirectoryCache = [];
+    let dossierSearchDebounceTimer = null;
+    let directoryRequestSeq = 0;
+
+    function getInitials(name) {
+      if (!name) return 'S';
+      const parts = String(name).trim().split(/\s+/);
+      if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+
+    function switchCounselorSubtab(tabName) {
+      const btnOverview = document.getElementById('subtab-btn-overview');
+      const btnDir = document.getElementById('subtab-btn-directory');
+      const panelOverview = document.getElementById('counselor-subtab-overview');
+      const panelDir = document.getElementById('counselor-subtab-directory');
+
+      if (tabName === 'directory') {
+        if (btnOverview) {
+          btnOverview.classList.remove('bg-slate-900', 'text-white', 'active');
+          btnOverview.classList.add('text-slate-600', 'hover:text-slate-900', 'hover:bg-slate-100');
+        }
+        if (btnDir) {
+          btnDir.classList.remove('text-slate-600', 'hover:text-slate-900', 'hover:bg-slate-100');
+          btnDir.classList.add('bg-slate-900', 'text-white', 'active');
+        }
+        if (panelOverview) panelOverview.classList.add('hidden');
+        if (panelDir) panelDir.classList.remove('hidden');
+
+        const listView = document.getElementById('student-directory-list-view');
+        const dossierContainer = document.getElementById('student-dossier-container');
+        if (listView && (!dossierContainer || dossierContainer.classList.contains('hidden'))) {
+          listView.classList.remove('hidden');
+        }
+        loadStudentDirectory();
+      } else {
+        if (btnDir) {
+          btnDir.classList.remove('bg-slate-900', 'text-white', 'active');
+          btnDir.classList.add('text-slate-600', 'hover:text-slate-900', 'hover:bg-slate-100');
+        }
+        if (btnOverview) {
+          btnOverview.classList.remove('text-slate-600', 'hover:text-slate-900', 'hover:bg-slate-100');
+          btnOverview.classList.add('bg-slate-900', 'text-white', 'active');
+        }
+        if (panelDir) panelDir.classList.add('hidden');
+        if (panelOverview) panelOverview.classList.remove('hidden');
+      }
+      initIcons();
+    }
+
+    function handleDossierSearchInput() {
+      if (dossierSearchDebounceTimer) clearTimeout(dossierSearchDebounceTimer);
+      dossierSearchDebounceTimer = setTimeout(() => {
+        loadStudentDirectory();
+      }, 250);
+    }
+
+    async function loadStudentDirectory() {
+      const grid = document.getElementById('student-directory-grid');
+      const searchInput = document.getElementById('dossier-search-input');
+      const classFilter = document.getElementById('dossier-class-filter');
+
+      const query = (searchInput?.value || '').trim();
+      const classVal = (classFilter?.value || '').trim();
+      const seq = ++directoryRequestSeq;
+
+      try {
+        const res = await callServer('getStudentDirectory', [query, classVal]);
+        if (seq !== directoryRequestSeq) return;
+        const students = Array.isArray(res) ? res : (res && res.data ? res.data : []);
+        studentDirectoryCache = students;
+
+        // Populate class filter dynamically if empty or default
+        if (classFilter && (!classFilter.dataset.populated || classFilter.dataset.populated !== 'true')) {
+          const currentVal = classFilter.value;
+          const classes = Array.from(new Set(students.map(s => s.class).filter(Boolean))).sort();
+          if (classes.length > 0) {
+            classFilter.innerHTML = '<option value="">Semua Kelas</option>' + classes.map(c => 
+              `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`
+            ).join('');
+            classFilter.value = currentVal;
+            classFilter.dataset.populated = 'true';
+          }
+        }
+
+        renderStudentDirectory(students);
+      } catch (err) {
+        if (seq !== directoryRequestSeq) return;
+        console.error('Error loading student directory:', err);
+        if (grid) {
+          grid.innerHTML = `
+            <div class="col-span-full p-6 text-center text-rose-500 bg-rose-50 rounded-2xl border border-rose-200 text-xs">
+              Gagal memuat direktori siswa: ${escapeHtml(err.message || 'Terjadi kesalahan')}
+            </div>
+          `;
+        }
+      }
+    }
+
+    function renderStudentDirectory(students) {
+      const grid = document.getElementById('student-directory-grid');
+      if (!grid) return;
+
+      if (!students || students.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full p-8 text-center text-slate-400 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 space-y-1">
+            <span class="text-2xl block">🔍</span>
+            <p class="text-xs font-semibold text-slate-600">Tidak Ada Siswa Ditemukan</p>
+            <p class="text-[11px] text-slate-400">Coba ubah kata kunci pencarian atau filter kelas.</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = students.map(s => {
+        const initials = getInitials(s.name);
+        const latestMoodStr = s.latestMood ? `${s.latestMood.mood_level || ''}` : 'Belum ada';
+        return `
+          <div class="student-dir-card bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between gap-3 hover:border-slate-300 transition">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-slate-900 text-white font-extrabold flex items-center justify-center text-xs shrink-0">
+                  ${escapeHtml(initials)}
+                </div>
+                <div class="min-w-0">
+                  <h4 class="text-xs sm:text-sm font-bold text-slate-900 leading-snug truncate">${escapeHtml(s.name || 'Siswa')}</h4>
+                  <p class="text-[11px] text-slate-400 truncate">${escapeHtml(s.email || '')}</p>
+                </div>
+              </div>
+              <span class="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                ${escapeHtml(s.class || 'Siswa')}
+              </span>
+            </div>
+
+            <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs gap-2">
+              <div class="flex items-center gap-1.5 text-[11px] text-slate-500 truncate">
+                <span>Mood:</span>
+                <span class="font-bold text-slate-800">${escapeHtml(latestMoodStr)}</span>
+              </div>
+              <button type="button" class="btn-open-dossier shrink-0 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer" data-email="${escapeHtml(s.email)}" onclick="openStudentDossier(this.dataset.email)">
+                <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+                <span>Buka Profil Holistik</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+      initIcons();
+    }
+
+    function backToDirectoryList() {
+      const listView = document.getElementById('student-directory-list-view');
+      const dossierContainer = document.getElementById('student-dossier-container');
+      if (dossierContainer) dossierContainer.classList.add('hidden');
+      if (listView) listView.classList.remove('hidden');
+      initIcons();
+    }
+
+    async function openStudentDossier(email) {
+      const listView = document.getElementById('student-directory-list-view');
+      const dossierContainer = document.getElementById('student-dossier-container');
+      const loadingEl = document.getElementById('dossier-loading-state');
+      const contentEl = document.getElementById('dossier-content-view');
+
+      if (listView) listView.classList.add('hidden');
+      if (dossierContainer) dossierContainer.classList.remove('hidden');
+      if (loadingEl) loadingEl.classList.remove('hidden');
+      if (contentEl) contentEl.classList.add('hidden');
+
+      const remarksDrawer = document.getElementById('dossier-mood-remarks-drawer');
+      const remarksChevron = document.getElementById('dossier-mood-chevron');
+      if (remarksDrawer) remarksDrawer.classList.add('hidden');
+      if (remarksChevron) remarksChevron.classList.remove('rotate-180');
+
+      try {
+        const res = await callServer('getStudentDossier', [email]);
+        if (!res || res.error) {
+          showToast(res && res.error ? res.error : 'Gagal memuat profil siswa', 'error');
+          backToDirectoryList();
+          return;
+        }
+
+        const dossierData = (res && res.profile) ? res : (res && res.data ? res.data : res);
+        renderStudentDossier(dossierData);
+
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (contentEl) contentEl.classList.remove('hidden');
+        initIcons();
+      } catch (err) {
+        console.error('Error loading dossier:', err);
+        showToast('Terjadi kesalahan saat memuat dossier siswa: ' + err.message, '❌');
+        backToDirectoryList();
+      }
+    }
+
+    function toggleSpectrumAccordion(btn) {
+      const parent = btn.parentElement;
+      if (!parent) return;
+      const detailItems = parent.querySelector('.spectrum-detail-items');
+      const chevron = btn.querySelector('.spectrum-chevron');
+      if (detailItems) {
+        detailItems.classList.toggle('hidden');
+      }
+      if (chevron) {
+        chevron.classList.toggle('rotate-180');
+      }
+    }
+
+    // =========================================================================
+    // COUNSELOR DOSSIER FEELINGS WHEEL & MOOD HISTORY CONTROLLER (#3)
+    // =========================================================================
+    // cachedMoods and feelings wheel helpers are hoisted in ClientState.html
+
+    function toggleDossierMoodRemarks() {
+      const drawer = document.getElementById('dossier-mood-remarks-drawer');
+      const chevron = document.getElementById('dossier-mood-chevron');
+      if (!drawer) return;
+      const isHidden = drawer.classList.toggle('hidden');
+      if (chevron) {
+        if (isHidden) {
+          chevron.classList.remove('rotate-180');
+        } else {
+          chevron.classList.add('rotate-180');
+        }
+      }
+    }
+
+    function renderDossierMoodHistory(moods) {
+      const container = document.getElementById('dossier-mood-history-list');
+      const badge = document.getElementById('dossier-mood-count-badge');
+      if (!container) return;
+
+      const items = Array.isArray(moods) ? moods.slice().reverse() : [];
+      if (badge) badge.innerText = `${items.length} Catatan`;
+
+      if (items.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-400 italic">Belum ada catatan mood.</p>';
+        return;
+      }
+
+      container.innerHTML = items.map(m => {
+        const meta = getMoodMeta(m.mood_level);
+        const d = m.timestamp ? new Date(m.timestamp) : null;
+        const dateStr = (d && !isNaN(d.getTime()))
+          ? d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+          : 'Catatan';
+
+        let triggersHtml = '';
+        if (m.triggers) {
+          const trigList = Array.isArray(m.triggers) ? m.triggers : String(m.triggers).split(',');
+          triggersHtml = trigList.map(t => `<span class="text-[9px] bg-teal-50 text-teal-700 border border-teal-200/70 font-semibold px-2 py-0.5 rounded-full">${escapeHtml(t.trim())}</span>`).join(' ');
+        }
+
+        let noteSnippet = '';
+        if (m.notes && m.notes.trim()) {
+          const rawNote = m.notes.trim();
+          const truncated = rawNote.length > 80 ? rawNote.slice(0, 80) + '...' : rawNote;
+          noteSnippet = `<p class="text-xs text-slate-700 bg-slate-50 p-2 rounded-xl border border-slate-100 font-medium line-clamp-2">${escapeHtml(truncated)}</p>`;
+        } else {
+          noteSnippet = `<p class="text-[10px] text-slate-400 italic">Tidak ada catatan tambahan</p>`;
+        }
+
+        return `
+          <div data-mood-id="${escapeHtml(m.id)}" onclick="event.stopPropagation(); openMoodDetail('${escapeHtml(m.id)}')" class="p-3 bg-white border border-slate-200 rounded-2xl hover:border-teal-400 hover:shadow-sm transition cursor-pointer space-y-1.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-xl">${meta.emoji}</span>
+                <div>
+                  <span class="text-xs font-bold text-slate-900">${escapeHtml(meta.label || m.mood_level)}</span>
+                  <span class="text-[10px] text-slate-400 ml-1.5">${escapeHtml(dateStr)}</span>
+                </div>
+              </div>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                Skor: ${m.mood_score || meta.score || 3} / 5
+              </span>
+            </div>
+            ${triggersHtml ? `<div class="flex flex-wrap gap-1">${triggersHtml}</div>` : ''}
+            ${noteSnippet}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderDossierMoodTrend(trendData) {
+      const container = document.getElementById('dossier-mood-chart');
+      if (!container) return;
+
+      const scoreMap = { 'Hebat': 5, 'Baik': 4, 'B aja': 3, 'Lelah': 2, 'Stres': 1 };
+      const shortDays = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        days.push({
+          dateObj: d,
+          dayName: i === 0 ? 'Hari ini' : shortDays[d.getDay()],
+          dateLabel: `${d.getDate()}/${d.getMonth() + 1}`,
+          index: 6 - i
+        });
+      }
+
+      const xStart = 60;
+      const xEnd = 470;
+      const stepX = (xEnd - xStart) / 6;
+
+      function getY(score) {
+        return 155 - (score - 1) * 32.5;
+      }
+
+      const itemsByDay = {};
+      const validItems = (trendData || []).filter(item => item && item.mood_level);
+      validItems.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      validItems.forEach(item => {
+        const itemDate = new Date(item.timestamp || Date.now());
+        const itemMidnight = new Date(itemDate);
+        itemMidnight.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((today.getTime() - itemMidnight.getTime()) / 86400000);
+        if (diffDays < 0 || diffDays > 6) return;
+        const dayIndex = 6 - diffDays;
+        if (!itemsByDay[dayIndex]) itemsByDay[dayIndex] = [];
+        itemsByDay[dayIndex].push(item);
+      });
+
+      const points = [];
+      for (let d = 0; d <= 6; d++) {
+        const dayItems = itemsByDay[d] || [];
+        const k = dayItems.length;
+        dayItems.forEach((item, idx) => {
+          const center = xStart + d * stepX;
+          const offset = k > 1 ? (idx - (k - 1) / 2) * 16 : 0;
+          const x = center + offset;
+          const meta = getMoodMeta(item.mood_level);
+          const score = Number(item.mood_score) || meta.score || 3;
+          const y = getY(score);
+
+          const itemDate = new Date(item.timestamp || Date.now());
+          const dateStr = !isNaN(itemDate.getTime())
+            ? `${shortDays[itemDate.getDay()]}, ${itemDate.getDate()} ${monthNames[itemDate.getMonth()]} • ${String(itemDate.getHours()).padStart(2, '0')}:${String(itemDate.getMinutes()).padStart(2, '0')}`
+            : '';
+
+          points.push({
+            x,
+            y,
+            moodLevel: item.mood_level,
+            score,
+            dateStr,
+            triggers: item.triggers || ''
+          });
+        });
+      }
+
+      let svgHtml = `
+        <svg class="w-full h-44 sm:h-52 overflow-visible" viewBox="0 0 500 200" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="dossierTrendGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#0d9488" stop-opacity="0.25" />
+              <stop offset="100%" stop-color="#0d9488" stop-opacity="0.0" />
+            </linearGradient>
+            <linearGradient id="dossierTrendLineGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#14b8a6" />
+              <stop offset="100%" stop-color="#0d9488" />
+            </linearGradient>
+            <filter id="dossierPointShadow" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#0f172a" flood-opacity="0.2" />
+            </filter>
+          </defs>
+      `;
+
+      const levels = [
+        { score: 5, emoji: '🤩' },
+        { score: 4, emoji: '😊' },
+        { score: 3, emoji: '😐' },
+        { score: 2, emoji: '😔' },
+        { score: 1, emoji: '😫' }
+      ];
+
+      levels.forEach(lvl => {
+        const y = getY(lvl.score);
+        svgHtml += `
+          <line x1="45" y1="${y}" x2="485" y2="${y}" stroke="#e2e8f0" stroke-dasharray="3 3" stroke-width="1" />
+          <text x="24" y="${y + 4}" font-size="12" text-anchor="middle" dominant-baseline="central">${lvl.emoji}</text>
+        `;
+      });
+
+      days.forEach(d => {
+        const dayX = xStart + d.index * stepX;
+        const isToday = d.index === 6;
+        svgHtml += `
+          <line x1="${dayX}" y1="20" x2="${dayX}" y2="160" stroke="#f1f5f9" stroke-width="1" />
+          <text x="${dayX}" y="176" font-size="10" font-weight="${isToday ? '800' : '600'}" fill="${isToday ? '#0d9488' : '#64748b'}" text-anchor="middle">${d.dayName}</text>
+          <text x="${dayX}" y="188" font-size="8.5" fill="${isToday ? '#0d9488' : '#94a3b8'}" text-anchor="middle">${d.dateLabel}</text>
+        `;
+      });
+
+      if (points.length >= 2) {
+        const polylinePoints = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+        const areaPathD = `M ${points[0].x.toFixed(1)} 155 L ${points.map(p => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ')} L ${points[points.length - 1].x.toFixed(1)} 155 Z`;
+
+        svgHtml += `
+          <path d="${areaPathD}" fill="url(#dossierTrendGradient)" />
+          <polyline points="${polylinePoints}" fill="none" stroke="url(#dossierTrendLineGrad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+        `;
+      } else if (points.length === 0) {
+        svgHtml += `
+          <text x="265" y="92" font-size="11" fill="#94a3b8" text-anchor="middle" font-weight="500">Belum ada catatan mood 7 hari terakhir untuk siswa ini.</text>
+        `;
+      } else if (points.length === 1) {
+        svgHtml += `
+          <circle cx="${points[0].x.toFixed(1)}" cy="${points[0].y.toFixed(1)}" r="12" fill="#0d9488" opacity="0.15" pointer-events="none" />
+        `;
+      }
+
+      points.forEach(p => {
+        svgHtml += `
+          <circle class="trend-point cursor-pointer transition-all duration-150"
+            cx="${p.x.toFixed(1)}"
+            cy="${p.y.toFixed(1)}"
+            r="6.5"
+            fill="#0d9488"
+            stroke="#ffffff"
+            stroke-width="2.5"
+            filter="url(#dossierPointShadow)">
+            <title>${escapeTrendAttr(p.dateStr)}: ${escapeTrendAttr(p.moodLevel)} ${p.triggers ? '(' + escapeTrendAttr(p.triggers) + ')' : ''}</title>
+          </circle>
+        `;
+      });
+
+      svgHtml += `</svg>`;
+      container.innerHTML = svgHtml;
+    }
+
+    let currentDossierStudent = null;
+
+    function openChatFromDossier() {
+      if (currentDossierStudent && currentDossierStudent.email) {
+        openChatModal(currentDossierStudent.email, currentDossierStudent.name || currentDossierStudent.email);
+      }
+    }
+
+    function renderStudentDossier(dossier) {
+      if (!dossier) return;
+
+      const profile = dossier.profile || {};
+      currentDossierStudent = profile;
+      const elName = document.getElementById('dossier-student-name');
+      const elEmail = document.getElementById('dossier-student-email');
+      const elClass = document.getElementById('dossier-student-class');
+      const elStatus = document.getElementById('dossier-student-status');
+      const elAvatar = document.getElementById('dossier-student-avatar');
+
+      if (elName) elName.innerText = profile.name || 'Nama Siswa';
+      if (elEmail) elEmail.innerText = profile.email || '';
+      if (elClass) elClass.innerText = profile.class || 'Siswa';
+      if (elStatus) elStatus.innerText = profile.status || 'ACTIVE';
+      if (elAvatar) elAvatar.innerText = getInitials(profile.name || 'S');
+
+      // 1. Personality Profile Trait Spectrum (0-100%)
+      const spectrumSection = document.getElementById('trait-spectrum-section');
+      if (spectrumSection) {
+        const survey = dossier.latestSurvey;
+        if (!survey || !survey.category_scores || Object.keys(survey.category_scores).length === 0) {
+          spectrumSection.innerHTML = `
+            <div class="p-6 text-center text-slate-400 bg-slate-50/80 rounded-2xl border border-dashed border-slate-200 space-y-1">
+              <span class="text-2xl block">📋</span>
+              <p class="text-xs font-semibold text-slate-600">Belum Ada Riwayat Survei Kepribadian</p>
+              <p class="text-[11px] text-slate-400">Siswa ini belum pernah mengisi kuesioner survei well-being.</p>
+            </div>
+          `;
+        } else {
+          const categories = Object.keys(survey.category_scores);
+          spectrumSection.innerHTML = categories.map(cat => {
+            const score = Math.round(Number(survey.category_scores[cat]) || 0);
+            const interp = getInterestInterpretation(score);
+            let tierLabel = 'Thriving';
+            let tierClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+            let barFillColor = 'bg-emerald-500';
+
+            if (score < 40) {
+              tierLabel = 'Need Support';
+              tierClass = 'bg-rose-100 text-rose-800 border-rose-200';
+              barFillColor = 'bg-rose-500';
+            } else if (score < 70) {
+              tierLabel = 'Developing';
+              tierClass = 'bg-amber-100 text-amber-800 border-amber-200';
+              barFillColor = 'bg-amber-500';
+            }
+
+            const catAnswers = (survey.answers || []).filter(
+              a => (a.category || '').toLowerCase() === cat.toLowerCase()
+            );
+
+            return `
+              <div class="p-4 sm:p-5 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="w-2.5 h-2.5 rounded-full ${barFillColor}"></span>
+                    <h4 class="text-xs sm:text-sm font-extrabold text-slate-900">${escapeHtml(cat)}</h4>
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${tierClass}">${tierLabel}</span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${interp.badgeClass}">${interp.label} (${interp.yesCount}/5 YES)</span>
+                  </div>
+                  <span class="text-sm sm:text-base font-black text-slate-900">${score}%</span>
+                </div>
+
+                <div class="space-y-1">
+                  <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200">
+                    <div class="h-full rounded-full transition-all duration-500 ${barFillColor}" style="width: ${Math.min(Math.max(score, 3), 100)}%;"></div>
+                  </div>
+                  <div class="flex justify-between text-[10px] text-slate-400 font-bold px-0.5 select-none">
+                    <span>0%</span>
+                    <span>25%</span>
+                    <span>50%</span>
+                    <span>75%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+
+                <div>
+                  <button type="button" onclick="toggleSpectrumAccordion(this)" class="spectrum-accordion-btn flex items-center justify-between w-full py-2 px-3 text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition border border-slate-200/60 cursor-pointer">
+                    <span class="flex items-center gap-1.5">
+                      <i data-lucide="help-circle" class="w-3.5 h-3.5 text-slate-400"></i>
+                      <span>Lihat Rincian Butir (${catAnswers.length} Pertanyaan)</span>
+                    </span>
+                    <i data-lucide="chevron-down" class="spectrum-chevron w-4 h-4 text-slate-400 transition-transform"></i>
+                  </button>
+                  <div class="spectrum-detail-items hidden space-y-2 mt-2 pt-2 border-t border-slate-100">
+                    ${catAnswers.length === 0 ? `
+                      <p class="text-slate-400 text-xs italic p-2">Tidak ada rincian jawaban butir.</p>
+                    ` : catAnswers.map((a, idx) => {
+                      const rawAns = Array.isArray(a.answer) ? a.answer.join(', ') : String(a.answer != null ? a.answer : '');
+                      const upperAns = rawAns.trim().toUpperCase();
+                      const qType = String(a.question_type || 'BINARY_YES_NO').toUpperCase();
+                      let badgeClass = 'bg-indigo-50 text-indigo-800 border-indigo-200';
+                      let badgeLabel = escapeHtml(rawAns || '-');
+                      if (upperAns === 'YA' || upperAns === 'YES' || a.answer === true) {
+                        badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                        badgeLabel = '✅ YA';
+                      } else if (upperAns === 'TIDAK' || upperAns === 'NO' || a.answer === false) {
+                        badgeClass = 'bg-rose-100 text-rose-800 border-rose-200';
+                        badgeLabel = '❌ TIDAK';
+                      } else if (qType === 'LINEAR_SCALE' || (/^[1-5]$/.test(rawAns.trim()) && qType !== 'SHORT_ANSWER')) {
+                        badgeClass = 'bg-teal-100 text-teal-800 border-teal-200';
+                        badgeLabel = `Skor: ${escapeHtml(rawAns.trim())}/5`;
+                      }
+                      return `
+                      <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50/70 border border-slate-100 text-xs gap-2">
+                        <span class="text-slate-700 pr-2">${escapeHtml(a.question_text || a.question_id || ('Pertanyaan ' + (idx + 1)))}</span>
+                        <span class="shrink-0 text-[10px] font-extrabold px-2 py-0.5 rounded-lg border ${badgeClass}">
+                          ${badgeLabel}
+                        </span>
+                      </div>
+                    `;
+                    }).join('')}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      // 2. Individual Mood Trend & Remarks History
+      renderDossierMoodTrend(dossier.moodTrend || []);
+      renderDossierMoodHistory(dossier.moodTrend || []);
+      cachedMoods = dossier.moodTrend || [];
+
+      // 3. Student Journals
+      const journalsSection = document.getElementById('dossier-journals-section');
+      if (journalsSection) {
+        const journals = dossier.journals || [];
+        if (journals.length === 0) {
+          journalsSection.innerHTML = `
+            <div class="col-span-full p-6 text-center text-slate-400 bg-slate-50/80 rounded-2xl border border-dashed border-slate-200 space-y-1">
+              <span class="text-2xl block">📖</span>
+              <p class="text-xs font-semibold text-slate-600">Belum Ada Catatan Jurnal</p>
+              <p class="text-[11px] text-slate-400">Siswa ini belum pernah menuliskan refleksi atau jurnal pribadi.</p>
+            </div>
+          `;
+        } else {
+          journals.forEach(j => {
+            if (!cachedJournals.some(cj => String(cj.id) === String(j.id))) {
+              cachedJournals.push(j);
+            }
+          });
+
+          journalsSection.innerHTML = journals.map(j => {
+            let dateStr = 'Hari ini';
+            try {
+              const d = new Date(j.timestamp);
+              if (!isNaN(d.getTime())) {
+                dateStr = d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+              }
+            } catch (e) {}
+
+            return `
+              <div class="journal-card h-32 p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-200 transition cursor-pointer flex flex-col justify-between overflow-hidden" data-journal-id="${escapeHtml(j.id)}" onclick="openJournalDetail(this.dataset.journalId)">
+                <div>
+                  <div class="flex items-center justify-between gap-2 pb-1 text-[10px] text-slate-400 font-medium">
+                    <span class="flex items-center gap-1">
+                      <i data-lucide="calendar" class="w-3 h-3 text-teal-600"></i>
+                      <span>${dateStr}</span>
+                    </span>
+                    <span class="text-teal-600 hover:underline font-bold text-[10px]">Detail</span>
+                  </div>
+                  <h4 class="text-xs sm:text-sm font-bold text-slate-900 line-clamp-1">${escapeHtml(j.title || 'Catatan Refleksi')}</h4>
+                  <p class="text-[11px] text-slate-600 line-clamp-2 mt-1 leading-snug">${escapeHtml(j.content || '')}</p>
+                </div>
+                <div class="text-[10px] text-teal-700 font-semibold text-right">
+                  <span>Klik untuk membaca →</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      initIcons();
+    }
+
+
+    async function openEditQuoteModal() {
+      const modal = document.getElementById('modal-edit-quote');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      initIcons();
+
+      try {
+        const res = await callServer('getActiveQuote', []);
+        const quoteData = (res && res.data) ? res.data : (res && res.quote ? res : null);
+        if (quoteData) {
+          const inputQuote = document.getElementById('input-quote-text');
+          const inputNote = document.getElementById('input-quote-note');
+          if (inputQuote && !inputQuote.value) inputQuote.value = quoteData.quote || '';
+          if (inputNote && !inputNote.value) inputNote.value = quoteData.note || '';
+        }
+      } catch (err) {
+        console.warn('Could not prefill quote in modal:', err);
+      }
+    }
+
+    function closeEditQuoteModal() {
+      const modal = document.getElementById('modal-edit-quote');
+      if (modal) {
+        modal.classList.add('hidden');
+      }
+    }
+
+    async function submitDailyQuote() {
+      const inputQuote = document.getElementById('input-quote-text');
+      const inputNote = document.getElementById('input-quote-note');
+      const quote = inputQuote ? inputQuote.value.trim() : '';
+      const note = inputNote ? inputNote.value.trim() : '';
+
+      if (!quote) {
+        showToast('Kata motivasi tidak boleh kosong', '⚠️');
+        return;
+      }
+
+      showToast('Menyimpan kata motivasi...', '⏳');
+      try {
+        await callServer('setDailyQuote', [{ quote, note }]);
+        showToast('Kata motivasi harian berhasil diperbarui!', '✨');
+        closeEditQuoteModal();
+        if (inputQuote) inputQuote.value = '';
+        if (inputNote) inputNote.value = '';
+        loadActiveQuote();
+      } catch (err) {
+        showToast('Gagal menyimpan kata motivasi: ' + err.message, '❌');
+      }
+    }
+
+
+    function renderCounselorArticleList(articles) {
+      const container = document.getElementById('counselor-articles-list');
+      const countBadge = document.getElementById('counselor-articles-count');
+      if (!container) return;
+
+      if (countBadge) countBadge.innerText = `${articles.length} Artikel`;
+
+      if (articles.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+            <span class="text-2xl block mb-1">✍️</span>
+            <p class="text-xs font-semibold">Belum ada artikel edukasi. Klik tombol di atas untuk menerbitkan artikel pertama.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = articles.map(a => {
+        const statusUpper = (a.status || 'PUBLISHED').toUpperCase();
+        const isPublished = statusUpper === 'PUBLISHED';
+        const statusBadge = isPublished
+          ? `<span class="article-status-badge text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md">Aktif</span>`
+          : `<span class="article-status-badge text-[9px] bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded-md">Draft</span>`;
+
+        const safeId = escapeHtml(a.id);
+
+        return `
+          <div class="counselor-article-card p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-2 hover:border-teal-300 transition flex flex-col justify-between" data-article-id="${safeId}">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <span class="text-[10px] font-bold text-teal-700 bg-teal-100/80 px-2 py-0.5 rounded-full">${escapeHtml(a.category || 'Umum')}</span>
+                ${statusBadge}
+              </div>
+              <h4 class="font-extrabold text-slate-900 text-xs sm:text-sm leading-snug">${escapeHtml(a.title)}</h4>
+              <p class="text-[11px] text-slate-500 mt-1 line-clamp-2">${escapeHtml(a.summary || '')}</p>
+            </div>
+            <div class="flex items-center justify-between pt-2 border-t border-slate-200 text-[10px] flex-wrap gap-1.5">
+              <span class="text-slate-400">Oleh: ${escapeHtml(a.author_name || 'Guru BK')}</span>
+              <div class="flex gap-1.5">
+                <button type="button" onclick="openArticleEditor('${safeId}')" class="btn-edit-article px-2 py-1 bg-white border border-slate-200 hover:border-teal-500 text-slate-700 font-semibold rounded-lg transition cursor-pointer">Edit</button>
+                <button type="button" onclick="toggleArticleStatus('${safeId}')" class="btn-toggle-article px-2 py-1 ${isPublished ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100' : 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'} border font-semibold rounded-lg transition cursor-pointer">${isPublished ? 'Nonaktifkan' : 'Aktifkan'}</button>
+                <button type="button" onclick="deleteArticleFromCms('${safeId}')" class="btn-delete-article px-2 py-1 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 font-semibold rounded-lg transition cursor-pointer">Hapus</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      initIcons();
+    }
+
+    function openArticleEditor(articleId) {
+      const form = document.getElementById('form-article-editor');
+      const modalTitle = document.getElementById('modal-article-editor-title');
+      form.reset();
+
+      const statusSelect = document.getElementById('input-article-status');
+
+      if (articleId) {
+        const article = cachedEducationalArticles.find(a => a.id === articleId);
+        if (article) {
+          modalTitle.innerText = 'Edit Artikel Edukasi';
+          document.getElementById('input-article-id').value = article.id;
+          document.getElementById('input-article-title').value = article.title || '';
+          document.getElementById('input-article-category').value = article.category || 'Manajemen Stres';
+          if (statusSelect) statusSelect.value = (article.status && article.status.toUpperCase() === 'DRAFT') ? 'DRAFT' : 'PUBLISHED';
+          document.getElementById('input-article-cover').value = article.cover_image_url || '';
+          document.getElementById('input-article-summary').value = article.summary || '';
+          document.getElementById('input-article-content').value = article.content_markdown || '';
+        }
+      } else {
+        modalTitle.innerText = 'Tulis Artikel Edukasi Baru';
+        document.getElementById('input-article-id').value = '';
+        if (statusSelect) statusSelect.value = 'PUBLISHED';
+      }
+
+      document.getElementById('modal-article-editor').classList.remove('hidden');
+      initIcons();
+    }
+
+    function closeArticleEditor() {
+      document.getElementById('modal-article-editor').classList.add('hidden');
+    }
+
+    async function saveArticleFromCms() {
+      if (isSavingArticle) return;
+      const id = document.getElementById('input-article-id').value;
+      const title = document.getElementById('input-article-title').value.trim();
+      const category = document.getElementById('input-article-category').value;
+      const statusEl = document.getElementById('input-article-status');
+      const status = statusEl ? (statusEl.value || 'PUBLISHED').toUpperCase() : 'PUBLISHED';
+      const coverImageUrl = document.getElementById('input-article-cover').value.trim();
+      const summary = document.getElementById('input-article-summary').value.trim();
+      const contentMarkdown = document.getElementById('input-article-content').value.trim();
+
+      if (!title || !contentMarkdown) {
+        showToast('Judul dan isi artikel wajib diisi', '⚠️');
+        return;
+      }
+
+      isSavingArticle = true;
+      showToast('Menyimpan artikel edukasi...', '⏳');
+      try {
+        const payload = {
+          id: id || undefined,
+          title,
+          category,
+          coverImageUrl,
+          summary,
+          contentMarkdown,
+          status
+        };
+        await callServer('saveEducationalArticle', [payload]);
+        closeArticleEditor();
+        showToast('Artikel edukasi berhasil disimpan! 📖', '✅');
+        await loadEducationalArticles();
+      } catch (err) {
+        showToast('Gagal menyimpan artikel: ' + err.message, '❌');
+      } finally {
+        isSavingArticle = false;
+      }
+    }
+
+    async function toggleArticleStatus(articleId) {
+      if (!articleId || inFlightArticleIds.has(articleId)) return;
+      const article = (cachedEducationalArticles || []).find(a => a.id === articleId);
+      if (!article) return;
+      inFlightArticleIds.add(articleId);
+      const nextStatus = ((article.status || 'PUBLISHED').toUpperCase() === 'PUBLISHED') ? 'DRAFT' : 'PUBLISHED';
+      try {
+        const payload = {
+          id: article.id,
+          title: article.title,
+          category: article.category,
+          coverImageUrl: article.cover_image_url,
+          summary: article.summary,
+          contentMarkdown: article.content_markdown,
+          status: nextStatus
+        };
+        await callServer('saveEducationalArticle', [payload]);
+        showToast(`Status artikel diubah ke ${nextStatus}`, '✅');
+        await loadEducationalArticles();
+      } catch (err) {
+        showToast('Gagal mengubah status artikel: ' + err.message, '❌');
+      } finally {
+        inFlightArticleIds.delete(articleId);
+      }
+    }
+
+    async function deleteArticleFromCms(id) {
+      if (!id || inFlightArticleIds.has(id)) return;
+      inFlightArticleIds.add(id);
+      try {
+        await callServer('deleteEducationalArticle', [id]);
+        showToast('Artikel berhasil dihapus permanen.', '🗑️');
+        await loadEducationalArticles();
+      } catch (err) {
+        showToast('Gagal menghapus artikel: ' + err.message, '❌');
+      } finally {
+        inFlightArticleIds.delete(id);
+      }
+    }
+
+  </script>
